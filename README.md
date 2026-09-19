@@ -7,14 +7,14 @@
 
 ## 1. Project ka Context (existing repo se)
 
-Uploaded repo (`wastechakra-v2`) abhi ek **React + TypeScript + Vite** frontend hai jo ek **Material Recovery Facility (MRF) simulation** dikhata hai (`src/simulation/engine.ts`, `WasteChakraSimulation.tsx`). Isme:
+Uploaded repo (`wastechakra-v2`) abhi ek **React + TypeScript + Vite** frontend hai jo ek **Material Recovery Facility (MRF) simulation** dikhata hai   (`src/simulation/engine.ts`, `WasteChakraSimulation.tsx`). Isme:
 
 - `SimParams` — totalWaste, moisture, contamination, organic/plastic/metal fraction (UI sliders se aate hain)
 - `routeMaterial()` — hardcoded rules se material ko destination me route karta hai
 - Ye sab **client-side JavaScript me simulated numbers** hain, koi backend nahi hai.
 
 **Naya goal:** Isi routing-logic ko ek **real Django DRF backend** me convert karna — lekin **fully virtual/software** rehte hue**:
-1. User waste ki **image upload** kare (webcam se browser me photo le sakte ho, ya koi bhi image file), **ya** direct simulation parameters (jaisa purane sliders me tha) de
+1. User waste ki **image upload** kare (webcam se browser me photo le sakte ho, ya koi bhi image file), **ya** direct simulation parameter (jaisa purane sliders me tha) de
 2. Ek **software ML/CV model** (ya, agar model nahi training karna, ek **smart virtual-classification module**) us image se material type predict kare
 3. **Virtual feature-generation engine** (koi physical sensor nahi) material-type + upload-metadata se realistic **Moisture %, Combustibility Index, Recyclability Score, RDF Suitability Score** generate kare
 4. **Decision Engine** in values ko combine karke final category decide kare: **Recycle / Bio / RDF**
@@ -898,4 +898,4 @@ USE_REAL_ML=False   # False = virtual_classifier.py used, True = real MaterialDe
 ---
 
 ### Next Steps
-Ye poora spec Antigravity ko de kar bolo: *"Is markdown spec ke according complete Django DRF project scaffold karo, Phase 0 se Phase 7 tak (fully virtual/software version, koi hardware code mat likhna, koi authentication mat lagana, ek hi settings.py file rakhna), har phase ke baad migrations aur basic tests bhi likho."* Agent step-by-step pura codebase generate kar dega — pure web application, deployable on any normal server, no physical components required, no login system required.
+Ye poora spec Antigravity ko de kar bolo: *"Is markdown spec ke according complete Django DRF project scaffold karo, Phase 0 se Phase 7 tak (fully virtual/software version, koi hardware code mat likhna, koi authentication mat lagana, ek hi settings.py file rakhna), har phase ke baad migrations aur basic tests bhi likho."* Agent step-by-step pura codebase generate kar dega — deployable on any normal server, no physical components required, no login system required.
