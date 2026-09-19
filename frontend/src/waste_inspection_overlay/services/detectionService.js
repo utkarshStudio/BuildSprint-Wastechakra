@@ -15,7 +15,7 @@ export async function inspectWasteImage(file, customApiKey = null) {
   formData.append('source', 'INSPECTION_OVERLAY');
 
   const headers = {};
-  const savedKey = customApiKey || localStorage.getItem('wc_gemini_api_key');
+  const savedKey = customApiKey || localStorage.getItem('wc_gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
   if (savedKey) {
     headers['X-Gemini-Key'] = savedKey;
   }

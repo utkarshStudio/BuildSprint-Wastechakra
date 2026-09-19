@@ -53,6 +53,22 @@ export default function Stage1UploadPreview({
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenKeyModal && (
+            <button
+              onClick={onOpenKeyModal}
+              disabled={isProcessing}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                isKeyConfigured
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                  : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+              }`}
+              title="Configure Google Gemini Vision API Key"
+            >
+              <Icon name="key" className={`w-3.5 h-3.5 ${isKeyConfigured ? 'text-emerald-600' : 'text-amber-600'}`} />
+              <span>{isKeyConfigured ? 'Gemini AI: Connected' : 'Connect Gemini AI'}</span>
+            </button>
+          )}
+
           {onUseDemoSample && (
             <button
               onClick={() => onUseDemoSample('/images/samples/municipal_mixed_waste.jpg')}

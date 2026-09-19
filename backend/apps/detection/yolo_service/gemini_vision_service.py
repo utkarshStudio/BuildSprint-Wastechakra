@@ -9,6 +9,7 @@ from PIL import Image, ImageFilter, ImageStat
 try:
     from ..ml.optical_classifier import analyze_image_optical
 except ImportError:
+    # pyrefly: ignore [missing-import]
     from apps.detection.ml.optical_classifier import analyze_image_optical
 from .routing_rules import (
     determine_stream,
@@ -23,11 +24,11 @@ logger = logging.getLogger(__name__)
 
 # Default official Google Gemini endpoints
 MODELS = [
+    "gemini-3-flash-preview",
     "gemini-flash-latest",
     "gemini-pro-latest",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-1.5-pro",
 ]
 
 
@@ -68,42 +69,33 @@ class GeminiVisionService:
                 img_rgb = img.convert("RGB")
                 orig_width, orig_height = img_rgb.size
 
-                max_dim = 1024
+                max_dim = 768
                 if max(orig_width, orig_height) > max_dim:
                     img_rgb.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
                 buffer = io.BytesIO()
-                img_rgb.save(buffer, format="JPEG", quality=85)
+                img_rgb.save(buffer, format="JPEG", quality=80)
                 b64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-            prompt = """You are an advanced industrial waste-sorting optical AI inspector for WasteChakra.
-Analyze all visible waste/garbage objects in this image.
-For each distinct waste item found, return a JSON object with:
-1. "label": Specific concise waste item name (e.g., "PET Bottle", "Aluminium Can", "Plastic Bag", "Food Waste", "Cardboard Box", "Bottle Cap", "Glass Bottle", "Styrofoam Cup", "Lays Chips Wrapper", "Tetra Pak", "Textile scrap").
-2. "confidence": Confidence score between 0.70 and 0.99 based on optical clarity.
-3. "stream": Exactly one of these 4 destination streams:
-   - "RECYCLABLE": Metals (tin, aluminium), rigid clean plastics (PET, HDPE, PP bottles/tubs), clean cardboard/paper, glass.
-   - "RDF": High-calorific multi-layer plastics, laminate pouches, chip/biscuit wrappers, dry flexible packaging suitable for Refuse-Derived Fuel.
-   - "ORGANIC": Food scraps, fruit/vegetable peels, bio-waste, compostable cellulose matter.
-   - "LANDFILL": Contaminated inert items, composite debris, ceramic, hazardous residue, non-recoverable matter.
-4. "rationale": 1 concise sentence explaining the physical material and why it is routed to that stream.
-5. "box_2d": Bounding box coordinates formatted as [ymin, xmin, ymax, xmax] with integer values normalized from 0 to 1000 (0=top/left, 1000=bottom/right).
+            prompt = """Analyze all waste objects in this image. For each distinct item return JSON with:
+1. "label": name of waste (e.g. PET Bottle, Aluminium Can, Plastic Bag, Food Waste, Paper, Cardboard)
+2. "confidence": score between 0.70 and 0.99
+3. "stream": exactly one of "RECYCLABLE", "RDF", "ORGANIC", "LANDFILL"
+4. "rationale": 1 sentence explaining the stream
+5. "box_2d": [ymin, xmin, ymax, xmax] in 0-1000 scale
 
-Return strictly valid JSON with this exact structure:
+Return strictly valid JSON:
 {
   "objects": [
     {
       "label": "PET Plastic Bottle",
       "confidence": 0.94,
       "stream": "RECYCLABLE",
-      "rationale": "Clear polymer suitable for mechanical flake re-granulation.",
+      "rationale": "Clear recyclable polymer.",
       "box_2d": [120, 200, 480, 520]
     }
   ],
-  "summary_points": [
-    "Identified high-value recyclable polymers.",
-    "Diverted packaging to RDF stream."
-  ]
+  "summary_points": ["Identified recyclable items."]
 }
 """
 
@@ -130,17 +122,24 @@ Return strictly valid JSON with this exact structure:
                     method="POST"
                 )
                 try:
-                    with urllib.request.urlopen(req, timeout=16) as response:
+                    with urllib.request.urlopen(req, timeout=30) as response:
                         if response.getcode() == 200:
                             raw_body = response.read().decode("utf-8")
                             res_data = json.loads(raw_body)
                             candidates = res_data.get("candidates", [])
                             if candidates:
-                                text_content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "{}")
+                                parts = candidates[0].get("content", {}).get("parts", [])
+                                text_content = "{}"
+                                for part in parts:
+                                    if "text" in part and part["text"].strip().startswith("{"):
+                                        text_content = part["text"]
+                                        break
+                                    elif "text" in part:
+                                        text_content = part["text"]
                                 response_json = json.loads(text_content)
                                 raw_objects = response_json.get("objects", [])
                                 if raw_objects:
-                                    return cls._format_detected_objects(raw_objects, response_json.get("summary_points", []), "GOOGLE GEMINI 1.5/2.0 VISION AI")
+                                    return cls._format_detected_objects(raw_objects, response_json.get("summary_points", []), "GOOGLE GEMINI VISION AI")
                 except Exception as e:
                     logger.warning(f"Gemini {model_name} attempt failed: {e}")
                     continue

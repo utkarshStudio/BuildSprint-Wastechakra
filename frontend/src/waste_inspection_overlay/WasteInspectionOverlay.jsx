@@ -223,7 +223,7 @@ export default function WasteInspectionOverlay({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('wc_gemini_api_key') || '');
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('wc_gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY || '');
   const [showKeyModal, setShowKeyModal] = useState(false);
 
   const containerRef = useRef(null);
