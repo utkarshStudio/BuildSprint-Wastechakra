@@ -1,6 +1,6 @@
 // Service for interacting with Django Detection API
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : 'https://wastechakra.onrender.com/api/v1');
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : 'https://buildsprint-wastechakra.onrender.com/api/v1');
 
 /**
  * Sends image to Django backend for optical object detection, bounding box extraction,
