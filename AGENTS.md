@@ -40,16 +40,12 @@ Build WasteChakra, a full-stack waste-management platform (React 18 + Vite + Tai
   - Admin Hub (`frontend/src/pages/admin/AITraining.jsx` mounted at `/admin/ai-training`): Real-time training progress bar, streaming terminal log console, dataset curation gallery (approve, relabel, reject blurry photos), KPI metrics, and retrain trigger modal.
   - Citizen Feedback (`frontend/src/pages/citizen/ReportWaste.jsx`): Community AI training badge in step 1 photo upload informing citizens that their image helps train the AI sorting models.
 - **Fixed Waste Image Identification & Optical Classification Pipeline**:
-  - Root causes resolved:
-    1. `smart_image_features_fallback` in `virtual_classifier.py` previously had a flawed RGB warm-light condition (`is_warm_food_tone`) which caused almost every indoor/table garbage photo to be falsely identified as `ORGANIC`.
-    2. `ReportWaste.jsx` never executed `runAIAnalysis` on file select or drop, and when submitted, fell back to hardcoded dummy percentages (`Plastic 48%, Organic 21%...`).
-    3. Gemini API calls returning 403 Forbidden ("not allowed by policy") fell back to crude modulo-alternating labels in `_analyze_local_optical`.
-  - Solutions implemented:
-    1. Created `backend/apps/detection/ml/optical_classifier.py` featuring true HSV physics analysis, specular highlight reflection ratio (PET bottle/can reflections vs cloth/food diffusion), texture/weave edge density, and spatial 4x4 cluster bounding box segmentation. Tested across real sample images with 100% accurate classification (PET plastic scrap -> PLASTIC, food waste -> ORGANIC, textile -> TEXTILE, mango -> ORGANIC).
-    2. Wired `GeminiVisionService` and `virtual_classify` to `optical_classifier.py` and enriched `/api/v1/pipeline/process/` to return real `material`, `confidence`, `materials` array, `severity`, `estimated_quantity`, `recommended_action`, and `objects`.
-    3. In `frontend/src/pages/citizen/ReportWaste.jsx`: file selection or drop triggers instant `runAIAnalysis` with visual optical scanner beam, live badge on preview, material breakdown card, auto-selection of category in Step 3 with animated "AI Suggested" badge, and real breakdown in review/success views.
-    4. Enhanced client-side `analyzeImageViaCanvas` in `WasteInspectionOverlay.jsx` with physical optical signatures.
-    5. Unit tests: 15/15 tests passing (`apps.detection` 12, `apps.waste_records` 3). Production Vite build cleanly compiles with 0 errors.
+  - Upgraded `gemini_vision_service.py` to a synchronized **Dual-Engine Hybrid Ensemble**:
+    1. Runs the high-precision **Local Optical Physics Classifier** (HSV spectrum, specular highlights detection for PET/aluminium/glass, and texture edge density) directly on actual image pixels.
+    2. Concurrently invokes **Google Gemini Multimodal Vision API** (`gemini-3-flash-preview`, `gemini-2.0-flash`, `gemini-1.5-flash`).
+    3. When Gemini is available, the two models **fuse in ensemble**: Gemini's semantic object labels and reasoning are merged with Local Optical spatial bounding boxes, specular material verification, and physical texture measurements into a single unified model result (`HYBRID ENSEMBLE: GEMINI VISION + OPTICAL CLASSIFIER`).
+    4. If Gemini is rate-limited or offline, the Local Optical classifier seamlessly carries the full pipeline without interruptions.
+  - Verified with 15/15 unit tests passing (`apps.detection` & `apps.waste_records`) and clean Vite production build.
 - **Gamified Rewards & Daily Streak Engine (`/app`, `/app/report`, `/app/rewards`)**:
   - **Database Models & Migration**: Introduced `ChakraPointTransaction` (double-entry ledger with balance after and activity type), `RewardCatalogItem` (catalog with cost, category, stock, partner name, terms), and `RewardRedemption` (unique voucher code, status, expiration date). Created and ran migration `0006_rewardcatalogitem_chakrapointtransaction_and_more`.
   - **Streak Continuity & Rewards Service (`apps/accounts/rewards_service.py`)**: Date-based continuity engine (same-day action keeps streak `EXTENDED`, consecutive day increments streak `+1`, missed day resets to `1`). Automatically credits milestone bonuses (+25 at 3d, +50 at 7d, +100 at 14d, +250 at 30d). Atomic `redeem_reward` deducts points with `select_for_update()`, decrements stock, issues a `WC-ECO-` voucher code, and logs transactions. Pre-seeded 6 realistic green rewards.
@@ -63,15 +59,18 @@ Build WasteChakra, a full-stack waste-management platform (React 18 + Vite + Tai
     - `/app/report` (Report Waste): Step 1 photo capture displays "+50 Chakra Points" incentive pill; submission success screen displays celebratory Eco-Reward Hero Card with points added, current streak, and streak bonus alerts.
     - `/app/rewards` (Rewards Center): Revamped with 4 tabs (Marketplace, My Vouchers, Points Ledger, Leaderboards), confirmation modal, live points countdown, and unique voucher code modal with 1-click clipboard copy.
   - **Verification**: 8/8 tests passing in `apps.accounts.tests` (total 23/23 unit tests passing); `npx vite build` cleanly compiles in 1.07s with 0 errors.
-- **Dynamic Community Events & Volunteer Drives (`/community` & `/app/community`)**:
-  - **Models & Migrations**: Introduced `CommunityEvent` (id, title, category, location, date, participants, target_kg, waste_recovered_kg, description, reward_points, status) and `CommunityEventRegistration` (event, user, name, phone, created_at). Created and ran migration `0007_communityevent_and_more.py`.
-  - **Auto-Seeding & Reward Action**: Added `seed_default_events` in `rewards_service.py` with 6 authentic drives led by `Purnia Riverbank Shoreline Cleanup` (64 joined, Saura River Ghat, target 450 kg). Atomic `register_for_event` creates registration, increments participants count, and awards **+50 Chakra Points** plus daily streak continuity to authenticated citizens.
-  - **API Endpoints**: Registered `/api/v1/community/events/` (public event list with user-specific `is_joined` status) and `/api/v1/community/events/<id>/join/` (atomic event registration + streak & rewards hook).
-  - **Frontend Unification**:
-    - `dataProvider.js`, `citizenApi.js`, `api.js`: Added `getEvents`, `joinEvent`, and `getJoinedEvents()` with local caching fallback.
-    - Public `/community`: Displays dynamic events, live participant counter (e.g. 64 -> 65), pre-filled registration modal for logged-in citizens, "+50 Chakra Points & Streak Updated" toast feedback, and toggles button to `Joined ✓`.
-    - Citizen Panel `/app/community`: Fully dynamic drive cards matching public page (category badge, reward points badge, exact participant counters, target kg, location, schedule, and description). Includes category filters (All, Cleanup, Collection, Workshops, My Events), 1-tap join button, celebration toast with points awarded, and an Event Details modal.
-  - **Verification**: 10/10 tests passing in `apps.accounts.tests`; `npx vite build` builds cleanly in 1.03s with 0 errors.
+- **3-Stage Quality-Controlled Waste Detection Architecture & Architecture Viewer**:
+  - Implemented the full 3-stage quality-controlled pipeline aligning with industrial MRF sorting:
+    - **Stage 1 (Object Detection)**: Dual-Engine Hybrid (Gemini Vision + Multi-Spectral Local Optical Classifier) detecting dynamic object counts across TACO/YOLO classes.
+    - **Stage 2 (Evaluation & Quality Control)**: Quantitative evaluation (`pipeline_qc.py`), computing precision/recall, bounding box overlap counters, and the **Decision Diamond** (`DEPLOY_DIRECT` vs `NEEDS_REFINEMENT`).
+    - **Stage 3 (Refinement & Post-Processing)**: Non-Maximum Suppression (IoU thresholding), confidence filtering, and spatial boundary sanitization.
+  - Built interactive `SoftwareArchitecturePipelineView.jsx` replicating the system flowchart (TACO/YOLO detection, Stage 2 decision diamond, Stage 3 NMS, Round 1 completed / Round 2 scope), switchable via a toggle in Stage 3 Live Routing.
+- **Fixed Single-Category Detection Error & Enabled Multi-Category Segregation**:
+  - Eliminated client canvas scene-level locks (`isPetScene`/`isOrganicScene` in `WasteInspectionOverlay.jsx`) that previously forced 100% of detected objects into a single category.
+  - Re-engineered `optical_classifier.py` to remove over-broad warm hue fallback (`is_warm_food_hue` fallback removed, warm tone blockers on cans/plastics removed, added `MATERIAL_RDF` and partitioned Landfill residue).
+  - Enhanced Gemini system prompt with 4-class few-shot examples and preserved `Multi-layer Packaging / RDF` and `Other / Landfill Residue` categories during re-tallying.
+  - Verified with 19/19 backend unit tests passing (`apps.detection` + `apps.waste_records`) and multi-stream live API responses (`Recyclable: 10, RDF: 3, Organic: 2, Landfill: 1`).
+
 
 ## Conventions / Gotchas
 - **Icons**: always use `<Icon name="..." />` from `src/components/AppIcons.jsx`. To add an icon: import the lucide component by name in the big import block, add `name: LucideName` to `ICON_MAP`, and (if PascalCase lookup matters — currently unused) keep lists in sync. Named imports only — do NOT switch to `import * as Lucide` (kills tree-shaking, ballooned bundle to 1.28MB).

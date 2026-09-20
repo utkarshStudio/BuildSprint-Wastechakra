@@ -311,3 +311,105 @@ class AITrainingPipelineTestCase(TransactionTestCase):
         self.assertIn("recommended_action", data)
         self.assertIn("objects", data)
         self.assertGreater(len(data["materials"]), 0)
+        # Verify 3-stage architecture pipeline response
+        self.assertIn("architecture_pipeline", data)
+        pipeline = data["architecture_pipeline"]
+        self.assertIn("stage_1_detection", pipeline)
+        self.assertIn("stage_2_evaluation", pipeline)
+        self.assertIn("stage_3_refinement", pipeline)
+        self.assertIn("decision_diamond", pipeline)
+        self.assertIn(pipeline["decision_diamond"]["decision"], ["DEPLOY_DIRECT", "NEEDS_REFINEMENT"])
+
+    # -------------------------------------------------------------
+    # 5. 3-Stage Pipeline QC & Optical Logic Unit Tests
+    # -------------------------------------------------------------
+    def test_wet_apple_organic_not_misclassified_as_plastic(self):
+        """Verify that a warm red/green wet organic food surface with high specularity
+        is correctly classified as ORGANIC (not PLASTIC) due to multi-spectral carotenoid hue and texture.
+        """
+        from apps.detection.ml.optical_classifier import classify_crop_optical
+
+        # Synthetic wet apple: Reddish carotenoid hue (H=12 in 0-180, R dominant), with bright reflection (S=0.45, V=0.92, specularity)
+        # Create an image that mimics wet apple flesh/skin: bright red with specular highlights
+        apple_img = Image.new("RGB", (64, 64), color=(220, 35, 25))
+        # Add a bright specular highlight spot in center (moisture sheen)
+        for dx in range(24, 40):
+            for dy in range(24, 40):
+                apple_img.putpixel((dx, dy), (255, 255, 255))
+
+        classification = classify_crop_optical(apple_img)
+        self.assertEqual(classification["stream"], "ORGANIC")
+        self.assertIn("apple", classification["label"].lower())
+
+    def test_plastic_bottle_classified_as_plastic(self):
+        """Verify that genuine plastic/synthetic specular items are classified as PLASTIC/RECYCLABLE."""
+        from apps.detection.ml.optical_classifier import classify_crop_optical
+
+        # Synthetic plastic: Cool cyan/blue translucent with high specularity and low organic saturation
+        plastic_img = Image.new("RGB", (64, 64), color=(140, 180, 200))
+        for dx in range(20, 44):
+            for dy in range(20, 44):
+                plastic_img.putpixel((dx, dy), (250, 250, 255))
+
+        classification = classify_crop_optical(plastic_img)
+        self.assertIn(classification["stream"], ["RECYCLABLE", "RDF"])
+        self.assertIn(classification["material"], ["PLASTIC", "METAL"])
+
+    def test_stage3_nms_suppression_and_confidence_filtering(self):
+        """Verify that IoU Non-Maximum Suppression eliminates overlapping duplicates
+        and filters low confidence predictions while preserving valid detections.
+        """
+        from apps.detection.ml.pipeline_qc import apply_nms, calculate_iou
+
+        box1 = {"xmin": 10.0, "ymin": 10.0, "width": 30.0, "height": 30.0}
+        box2_duplicate = {"xmin": 12.0, "ymin": 11.0, "width": 29.0, "height": 30.0} # High IoU overlap with box1
+        box3_distinct = {"xmin": 60.0, "ymin": 60.0, "width": 25.0, "height": 25.0} # Far away distinct
+
+        iou = calculate_iou(box1, box2_duplicate)
+        self.assertGreater(iou, 0.70)
+
+        test_objects = [
+            {"id": "det_1", "label": "PET Plastic Bottle", "stream": "RECYCLABLE", "confidence": 0.95, "box": box1},
+            {"id": "det_2", "label": "PET Plastic Bottle", "stream": "RECYCLABLE", "confidence": 0.88, "box": box2_duplicate},
+            {"id": "det_3", "label": "Apple Food Waste", "stream": "ORGANIC", "confidence": 0.91, "box": box3_distinct},
+            {"id": "det_4", "label": "Ghost Artefact", "stream": "LANDFILL", "confidence": 0.45, "box": {"xmin": 1, "ymin": 1, "width": 5, "height": 5}},
+        ]
+
+        refined, stats = apply_nms(test_objects, iou_threshold=0.40, min_confidence=0.72)
+
+        # Expect duplicate det_2 suppressed, low-conf det_4 filtered, leaving det_1 and det_3
+        self.assertEqual(len(refined), 2)
+        self.assertEqual(stats["suppressed_duplicate_count"], 1)
+        self.assertEqual(stats["filtered_low_conf_count"], 1)
+        kept_ids = [o["id"] for o in refined]
+        self.assertIn("det_1", kept_ids)
+        self.assertIn("det_3", kept_ids)
+        self.assertNotIn("det_2", kept_ids)
+        self.assertNotIn("det_4", kept_ids)
+
+    def test_stage2_quality_control_decision_diamond(self):
+        """Verify Stage 2 evaluation metrics, reliability scoring, and Decision Diamond."""
+        from apps.detection.ml.pipeline_qc import evaluate_stage2_quality
+
+        clean_objects = [
+            {"id": "1", "label": "Apple Core", "stream": "ORGANIC", "confidence": 0.94, "box": {"xmin": 10, "ymin": 10, "width": 20, "height": 20}},
+            {"id": "2", "label": "Banana Peel", "stream": "ORGANIC", "confidence": 0.92, "box": {"xmin": 40, "ymin": 40, "width": 20, "height": 20}},
+            {"id": "3", "label": "Food Scraps", "stream": "ORGANIC", "confidence": 0.90, "box": {"xmin": 70, "ymin": 70, "width": 20, "height": 20}},
+        ]
+
+        qc_clean = evaluate_stage2_quality(clean_objects)
+        self.assertEqual(qc_clean["decision"], "DEPLOY_DIRECT")
+        self.assertGreaterEqual(qc_clean["reliability_score"], 0.85)
+        self.assertEqual(qc_clean["duplicate_overlap_count"], 0)
+        # Ground truth status must not be faked
+        self.assertEqual(qc_clean["ground_truth_status"], "UNAVAILABLE")
+        self.assertIsNone(qc_clean["map_50"])
+
+        # Conflicted / overlapping objects should trigger NEEDS_REFINEMENT
+        overlapping_objects = [
+            {"id": "1", "label": "Bottle", "stream": "RECYCLABLE", "confidence": 0.65, "box": {"xmin": 10, "ymin": 10, "width": 30, "height": 30}},
+            {"id": "2", "label": "Bottle", "stream": "RECYCLABLE", "confidence": 0.60, "box": {"xmin": 12, "ymin": 12, "width": 30, "height": 30}},
+        ]
+        qc_overlap = evaluate_stage2_quality(overlapping_objects)
+        self.assertEqual(qc_overlap["decision"], "NEEDS_REFINEMENT")
+        self.assertGreater(qc_overlap["duplicate_overlap_count"], 0)

@@ -68,107 +68,89 @@ function analyzeImageViaCanvas(imgElement) {
       }
     }
 
-    // Scene-level optical heuristics to contextualize image stream before cell classification
-    const petBottleIndicators = items.filter(it => 
-      (it.avgB > it.avgR + 6 && it.avgB > 95) || 
-      (it.brightness > 135 && it.avgB > 110 && it.avgG > 130)
-    ).length;
-    
-    const organicIndicators = items.filter(it => 
-      (it.avgR > it.avgB * 1.45 && it.sat > 0.35) || 
-      (it.avgG > it.avgR * 1.35 && it.avgB < 90)
-    ).length;
-
-    const isPetScene = petBottleIndicators >= 5 && organicIndicators <= 2;
-    const isOrganicScene = organicIndicators >= 4 && petBottleIndicators <= 1;
-
-    // Sort by visual activity to find distinct objects
+    // Sort by visual activity to find distinct objects across the scene
     items.sort((a, b) => b.activity - a.activity);
-    const topClusters = items.slice(0, 5);
+    // Dynamically select active clusters above background noise floor (supports dynamic 4 to 16 objects)
+    const topClusters = items.filter((cl, idx) => cl.activity > 14.0 || idx < 4);
 
     const objects = topClusters.map((cl, idx) => {
-      const bx = Math.max(5, Math.round((cl.c / cols) * 100 + 3));
-      const by = Math.max(5, Math.round((cl.r / rows) * 100 + 3));
-      const bw = Math.min(35, Math.round((1 / cols) * 100 + 2));
-      const bh = Math.min(38, Math.round((1 / rows) * 100 + 2));
+      const bx = Math.max(4, Math.round((cl.c / cols) * 100 + 2));
+      const by = Math.max(4, Math.round((cl.r / rows) * 100 + 2));
+      const bw = Math.min(36, Math.round((1 / cols) * 100 + 2));
+      const bh = Math.min(36, Math.round((1 / rows) * 100 + 2));
 
       let label, stream, rationale, conf;
 
-      if (isPetScene) {
-        // Scene is transparent PET bottles
-        if (cl.avgG > cl.avgR * 1.12 && cl.avgG > 120) {
-          label = "PET Bottle (Polymer Printed Label)";
-          stream = "RECYCLABLE";
-          rationale = "PET beverage container with printed polymer sleeve routed to flake recycling.";
-          conf = 0.94;
-        } else if (cl.avgB > cl.avgR + 8 && cl.avgB > 95) {
-          label = "PET Bottle Neck & Polymer Cap";
-          stream = "RECYCLABLE";
-          rationale = "High-density polymer cap closure separated during washing float-sink stage.";
-          conf = 0.95;
-        } else {
-          label = "Clear PET Plastic Bottle";
-          stream = "RECYCLABLE";
-          rationale = "Transparent food-grade PET bottle identified for closed-loop bottle-to-bottle pelletizing.";
-          conf = 0.96;
-        }
-      } else if (isOrganicScene) {
-        // Scene is organic kitchen waste / food biomass
-        if (cl.avgG > cl.avgR * 1.20 && cl.avgG > cl.avgB) {
-          label = "Vegetable Scrap / Leaf Biomass";
-          stream = "ORGANIC";
-          rationale = "Chlorophyll-rich vegetal matter routed to municipal aerobic composting.";
-          conf = 0.93;
-        } else if (cl.avgR > 110 && cl.avgR > cl.avgB * 1.35) {
-          label = "Organic Food Peels & Kitchen Scrap";
-          stream = "ORGANIC";
-          rationale = "High-moisture organic kitchen biomass routed to bio-methanation.";
-          conf = 0.92;
-        } else {
-          label = "Organic Compostable Residue";
-          stream = "ORGANIC";
-          rationale = "Biodegradable organic matter suitable for anaerobic digestion.";
-          conf = 0.89;
-        }
-      } else {
-        // Mixed waste scene
-        const isKraftCardboard = cl.avgR > 115 && cl.avgG > 80 && cl.avgB < 75 && cl.sat < 0.35;
-        const isNewsprint = cl.sat < 0.18 && cl.brightness > 105;
-        const isSpecularCan = cl.brightness > 155 && cl.sat < 0.22;
-        const isGreenVegetal = cl.avgG > cl.avgR * 1.30 && cl.avgG > cl.avgB * 1.25 && cl.avgB < 95;
-        const isMultiLayerFilm = cl.sat > 0.38 && cl.brightness > 80;
+      // Optical feature criteria per individual localized cluster
+      const isChlorophyllGreen = cl.avgG > cl.avgR * 1.18 && cl.avgG > cl.avgB * 1.15 && cl.sat > 0.20;
+      const isWarmFoodOrganic = (cl.avgR > 115 && cl.avgR > cl.avgB * 1.35 && cl.sat > 0.26) ||
+                                (cl.avgR > 100 && cl.avgG > 65 && cl.avgB < 65 && cl.sat > 0.35 && cl.activity > 14);
+      const isMetallicCan = (cl.brightness > 155 && cl.sat < 0.20 && cl.avgR < 200) ||
+                            (cl.brightness > 135 && cl.sat < 0.14 && Math.abs(cl.avgR - cl.avgG) < 12 && Math.abs(cl.avgG - cl.avgB) < 15);
+      const isKraftCardboard = cl.avgR > 110 && cl.avgG > 75 && cl.avgB < 85 && (cl.avgR > cl.avgB * 1.35) && cl.sat < 0.40 && cl.activity > 12;
+      const isNewsprintPaper = cl.sat < 0.14 && cl.brightness > 110 && cl.brightness < 225;
+      const isCoolPetPlastic = (cl.avgB > cl.avgR + 6 && cl.avgB > 85) ||
+                               (cl.brightness > 125 && cl.sat < 0.22 && cl.activity < 22);
+      const isMultiLayerFilm = (cl.sat > 0.35 && cl.brightness > 85 && (cl.avgB > cl.avgR || cl.sat > 0.52)) ||
+                               (cl.sat > 0.30 && cl.activity > 22 && cl.brightness > 90);
+      const isInertLandfill = cl.brightness < 78 || (cl.sat < 0.15 && cl.brightness < 105 && cl.activity > 18);
 
-        if (isKraftCardboard) {
-          label = "Corrugated Cardboard Packaging";
-          stream = "RECYCLABLE";
-          rationale = "Unbleached fibrous cellulosic packaging suitable for paper pulping.";
-          conf = 0.93;
-        } else if (isNewsprint) {
-          label = "Recoverable Newsprint / Paper Scrap";
-          stream = "RECYCLABLE";
-          rationale = "De-inkable high-grade paper scrap sorted for pulp recovery.";
-          conf = 0.91;
-        } else if (isSpecularCan) {
-          label = "Aluminium Beverage Can";
-          stream = "RECYCLABLE";
-          rationale = "Specular reflective metallic container separated for closed-loop smelting.";
-          conf = 0.95;
-        } else if (isGreenVegetal) {
-          label = "Vegetal Matter / Plant Trimmings";
-          stream = "ORGANIC";
-          rationale = "Green organic waste directed to municipal composting.";
-          conf = 0.90;
-        } else if (isMultiLayerFilm) {
-          label = "Flexible Multi-layer Packaging Film";
-          stream = "RDF";
-          rationale = "High-calorific multi-layer polymer film routed to RDF fuel recovery.";
-          conf = 0.91;
+      // Hierarchical per-object classification
+      if (isMetallicCan) {
+        label = "Aluminium Beverage Can";
+        stream = "RECYCLABLE";
+        rationale = "Specular reflective metallic container separated for closed-loop smelting.";
+        conf = 0.95;
+      } else if (isKraftCardboard) {
+        label = "Corrugated Cardboard Packaging";
+        stream = "RECYCLABLE";
+        rationale = "Unbleached cellulosic fiber packaging routed to paper pulping.";
+        conf = 0.94;
+      } else if (isChlorophyllGreen) {
+        label = "Vegetal Matter / Plant Trimmings";
+        stream = "ORGANIC";
+        rationale = "Chlorophyll-rich green organic waste directed to municipal composting.";
+        conf = 0.95;
+      } else if (isWarmFoodOrganic) {
+        if (cl.avgR > 130 && cl.avgR > cl.avgG * 1.15) {
+          label = "Apple / Red Fruit Waste";
+          rationale = "Natural fruit surface with moisture sheen routed to municipal composting.";
         } else {
-          label = "Rigid Polymer Packaging Container";
-          stream = "RECYCLABLE";
-          rationale = "Rigid plastic profile routed to automated optical sorting line.";
-          conf = 0.88;
+          label = "Kitchen Food Scraps & Peels";
+          rationale = "High-moisture organic kitchen biomass routed to bio-methanation.";
         }
+        stream = "ORGANIC";
+        conf = 0.93;
+      } else if (isNewsprintPaper) {
+        label = "Recoverable Newsprint / Paper Scrap";
+        stream = "RECYCLABLE";
+        rationale = "De-inkable high-grade paper scrap sorted for pulp recovery.";
+        conf = 0.92;
+      } else if (isCoolPetPlastic) {
+        if (cl.avgB > cl.avgR + 12 && cl.avgB > 95) {
+          label = "PET Bottle Neck & Polymer Cap";
+          rationale = "High-density polymer cap closure separated during float-sink washing.";
+        } else {
+          label = "Clear PET Beverage Bottle";
+          rationale = "Transparent food-grade PET bottle identified for closed-loop pelletizing.";
+        }
+        stream = "RECYCLABLE";
+        conf = 0.94;
+      } else if (isMultiLayerFilm) {
+        label = "Multi-layer Flexible Packaging (MLP)";
+        stream = "RDF";
+        rationale = "High-calorific multi-layer polymer film routed to Refuse-Derived Fuel.";
+        conf = 0.91;
+      } else if (isInertLandfill) {
+        label = "Composite Residue / Mixed Debris";
+        stream = "LANDFILL";
+        rationale = "Contaminated non-recoverable aggregate diverted to sanitary landfill containment.";
+        conf = 0.88;
+      } else {
+        label = "Rigid Polymer Packaging Container";
+        stream = "RECYCLABLE";
+        rationale = "Rigid synthetic polymer container routed to automated optical sorting line.";
+        conf = 0.89;
       }
 
       return {
@@ -185,23 +167,22 @@ function analyzeImageViaCanvas(imgElement) {
     const stream_counts = { RECYCLABLE: 0, RDF: 0, ORGANIC: 0, LANDFILL: 0 };
     objects.forEach(o => { stream_counts[o.stream] = (stream_counts[o.stream] || 0) + 1; });
 
+    const summary_points = [
+      stream_counts.RECYCLABLE > 0 ? `Identified ${stream_counts.RECYCLABLE} recyclable unit(s) (metals, polymers, cardboard) for circular recovery.` : null,
+      stream_counts.ORGANIC > 0 ? `Diverted ${stream_counts.ORGANIC} organic food scrap(s) to bio-methanation and municipal composting.` : null,
+      stream_counts.RDF > 0 ? `Routed ${stream_counts.RDF} high-calorific flexible package(s) into RDF fuel co-processing.` : null,
+      stream_counts.LANDFILL > 0 ? `Isolated ${stream_counts.LANDFILL} non-recoverable composite item(s) from downstream conveyor.` : null,
+    ].filter(Boolean);
+
+    if (summary_points.length === 0) {
+      summary_points.push("Processed buffer frame with optical physics classifier.");
+    }
+
     return {
       objects,
       total_detected: objects.length,
       stream_counts,
-      summary_points: isPetScene ? [
-        `Identified ${stream_counts.RECYCLABLE} recyclable PET containers for closed-loop recovery.`,
-        `Diverted polymer labels and caps for mechanical flake separation.`,
-        `Preserved high-purity clear polymer batch for pelletizing.`
-      ] : isOrganicScene ? [
-        `Identified ${stream_counts.ORGANIC} organic items for bio-methanation and composting.`,
-        `Diverted high-moisture kitchen scraps from dry recyclables.`,
-        `Zero plastic contamination detected in bio-stream.`
-      ] : [
-        `Identified ${stream_counts.RECYCLABLE} recyclable items for closed-loop recovery.`,
-        `Diverted ${stream_counts.RDF} high-energy packages into RDF fuel stream.`,
-        `Isolated non-recoverable matter from conveyor twin.`
-      ],
+      summary_points,
       model_version: "HYBRID AI: REAL-TIME OPTICAL ANALYSIS"
     };
   } catch (e) {

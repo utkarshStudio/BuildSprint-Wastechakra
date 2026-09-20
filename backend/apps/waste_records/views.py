@@ -96,6 +96,11 @@ class ProcessWasteImageView(APIView):
         data["estimated_quantity"] = vision_res.get("estimated_quantity", "5-15 kg")
         data["recommended_action"] = vision_res.get("recommended_action", "Route to dry waste recycling")
         data["objects"] = vision_res.get("objects", [])
+        data["total_detected"] = vision_res.get("total_detected", len(vision_res.get("objects", [])))
+        data["stream_counts"] = vision_res.get("stream_counts", {})
+        data["summary_points"] = vision_res.get("summary_points", [])
+        data["model_version"] = vision_res.get("model_version", "HYBRID ENSEMBLE: GEMINI VISION + OPTICAL CLASSIFIER")
+        data["architecture_pipeline"] = vision_res.get("architecture_pipeline", {})
 
         if request.user and request.user.is_authenticated:
             try:

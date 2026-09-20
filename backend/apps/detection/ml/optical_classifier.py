@@ -14,6 +14,7 @@ MATERIAL_METAL = "METAL"
 MATERIAL_TEXTILE = "TEXTILE"
 MATERIAL_GLASS = "GLASS"
 MATERIAL_E_WASTE = "E_WASTE"
+MATERIAL_RDF = "RDF"
 MATERIAL_MIXED = "MIXED"
 
 MATERIAL_LABELS = {
@@ -24,7 +25,8 @@ MATERIAL_LABELS = {
     MATERIAL_TEXTILE: "Textile Fabric / Garment Waste",
     MATERIAL_GLASS: "Glass Bottle / Fragment",
     MATERIAL_E_WASTE: "Electronic Waste / Wiring",
-    MATERIAL_MIXED: "Mixed Municipal Waste",
+    MATERIAL_RDF: "Multi-layer Packaging / RDF Film",
+    MATERIAL_MIXED: "Mixed Municipal / Landfill Waste",
 }
 
 STREAM_MAP = {
@@ -35,6 +37,7 @@ STREAM_MAP = {
     MATERIAL_TEXTILE: "RDF",
     MATERIAL_GLASS: "RECYCLABLE",
     MATERIAL_E_WASTE: "RECYCLABLE",
+    MATERIAL_RDF: "RDF",
     MATERIAL_MIXED: "LANDFILL",
 }
 
@@ -95,62 +98,78 @@ def classify_spatial_cell(cell_img: Image.Image, cell_w: int, cell_h: int) -> di
     )
     kraft_ratio = kraft_brown_count / total_px
 
-    # --- PHYSICAL OPTICAL SIGNATURES ---
+    # --- PHYSICAL OPTICAL SIGNATURES & MULTI-FEATURE REASONING ---
     category = MATERIAL_MIXED
     label = "Mixed Residual Waste"
     confidence = 0.85
     rationale = "General composite waste item."
 
-    # 1. Clear Vegetal / Organic Bio-waste:
-    # High green ratio OR warm food hue (peels, citrus, curry, vegetables) with high saturation & organic texture
-    is_warm_food_hue = (10.0 <= hue_deg <= 75.0) or (hue_deg >= 335.0)
-    if green_ratio > 0.25 and specular_ratio < 0.10 and blue_cyan_ratio < 0.15:
+    # Organic Color & Moisture Indicators:
+    # Warm food hues (red-orange-yellow carotenoids / anthocyanins)
+    is_warm_food_hue = (hue_deg <= 75.0) or (hue_deg >= 335.0)
+    # Biological moisture requires warm food hue, distinct red dominance over blue, biological saturation and texture
+    is_biological_moisture = (
+        is_warm_food_hue and
+        (mean_r > mean_b * 1.30) and
+        (sat_mean >= 0.26) and
+        (edge_mean >= 14.0 or sat_mean >= 0.35) and
+        blue_cyan_ratio < 0.14
+    )
+
+    # 1. Chlorophyll Vegetal / Green Plant Waste:
+    if green_ratio > 0.20 and blue_cyan_ratio < 0.12:
         category = MATERIAL_ORGANIC
         label = "Vegetable / Plant Organic Scrap"
-        confidence = min(0.96, 0.86 + green_ratio * 0.15)
+        confidence = min(0.97, 0.88 + green_ratio * 0.15)
         rationale = "Chlorophyll-rich vegetal waste routed to municipal composting."
-    elif is_warm_food_hue and sat_mean > 0.32 and edge_mean > 18 and specular_ratio < 0.08:
+
+    # 2. Moist Food Biomass & Kitchen Scraps:
+    elif is_biological_moisture:
         category = MATERIAL_ORGANIC
-        label = "Organic Food Leftovers / Peels"
-        confidence = min(0.95, 0.86 + sat_mean * 0.14)
-        rationale = "High-moisture organic kitchen food scraps for bio-methanation."
+        if (hue_deg <= 25.0 or hue_deg >= 335.0) and mean_r > 120:
+            label = "Apple / Red Fruit Waste"
+            rationale = "Natural fruit surface with moisture sheen routed to municipal composting."
+        elif 25.0 < hue_deg <= 55.0 and sat_mean > 0.30:
+            label = "Citrus / Banana Peel Organic Waste"
+            rationale = "Carotenoid-rich fruit peel scrap routed to bio-methanation."
+        else:
+            label = "Kitchen Food Scraps & Peels"
+            rationale = "High-moisture organic kitchen biomass diverted from landfill to bio-waste composting."
+        confidence = min(0.96, 0.88 + sat_mean * 0.14)
 
-    # 2. Textile / Fabric:
-    # Very low specularity (diffuse micro-fibers, specular < 0.02) + dense weave texture (edge_mean > 45)
-    elif specular_ratio < 0.02 and edge_mean > 42:
-        category = MATERIAL_TEXTILE
-        label = "Woven Fabric / Textile Scrap"
-        confidence = min(0.95, 0.86 + (edge_mean / 100.0) * 0.1)
-        rationale = "Micro-fibrous textile weave suitable for shredding into RDF or yarn."
+    # 3. Metallic Aluminium / Tin Beverage Can:
+    # Sharp specularity + low chromatic saturation + high metallic brightness
+    elif specular_ratio > 0.05 and sat_mean < 0.22 and (mean_v > 0.48 or (mean_r > 130 and mean_g > 130 and mean_b > 130)):
+        category = MATERIAL_METAL
+        label = "Aluminium Beverage Can"
+        confidence = min(0.97, 0.89 + specular_ratio * 0.5)
+        rationale = "Specular reflective metallic container separated for closed-loop smelting."
 
-    # 3. Corrugated Cardboard / Kraft Paper:
-    elif kraft_ratio > 0.28 and sat_mean < 0.32:
+    # 4. Corrugated Cardboard / Kraft Paper:
+    elif kraft_ratio > 0.20 and sat_mean < 0.38 and edge_mean > 12.0:
         category = MATERIAL_PAPER
         label = "Corrugated Cardboard Scrap"
-        confidence = min(0.95, 0.88 + kraft_ratio * 0.12)
-        rationale = "Cellulosic fiber packaging suitable for paper recycling."
+        confidence = min(0.95, 0.88 + kraft_ratio * 0.15)
+        rationale = "Cellulosic fiber packaging suitable for paper pulping."
 
-    # 4. Clean White Paper / Office Paper:
-    elif mean_r > 200 and mean_g > 200 and mean_b > 200 and sat_mean < 0.12 and edge_mean < 45:
+    # 5. Clean White Paper / Printed Document / Newsprint:
+    elif (mean_r > 190 and mean_g > 190 and mean_b > 190 and sat_mean < 0.14) or (sat_mean < 0.12 and 0.45 < mean_v < 0.85 and edge_mean < 38):
         category = MATERIAL_PAPER
-        label = "Printed Paper / White Document Scrap"
+        label = "Printed Paper / Newsprint Scrap"
         confidence = 0.92
         rationale = "High-grade recyclable paper pulp stock."
 
-    # 5. Metallic Aluminium / Tin: Very high specular highlights, low saturation, sharp reflections
-    elif specular_ratio > 0.08 and sat_mean < 0.20:
-        category = MATERIAL_METAL
-        label = "Aluminium / Metal Beverage Can"
-        confidence = min(0.97, 0.88 + specular_ratio * 0.5)
-        rationale = "High-specularity metallic container for closed-loop smelting."
-
     # 6. Plastic: PET Bottles, HDPE Containers, Polymers
-    # Distinct polymer reflections, cyan/blue tint, or smooth synthetic surface
-    elif specular_ratio > 0.035 or blue_cyan_ratio > 0.12 or (mean_v > 0.50 and sat_mean < 0.32):
-        if specular_ratio > 0.05 and mean_v > 0.60:
+    # Genuine plastic has synthetic neutral or cool tone, high polymer shine with low organic saturation, or blue/cyan tint
+    elif (
+        (blue_cyan_ratio > 0.10) or
+        (specular_ratio > 0.035 and sat_mean < 0.26 and not is_biological_moisture) or
+        (mean_v > 0.50 and sat_mean < 0.22 and edge_mean < 30)
+    ):
+        if (specular_ratio > 0.05 and mean_v > 0.55) or blue_cyan_ratio > 0.14:
             category = MATERIAL_PLASTIC
             label = "PET Plastic Bottle / Clear Polymer"
-            confidence = min(0.96, 0.89 + specular_ratio * 0.7)
+            confidence = min(0.96, 0.89 + specular_ratio * 0.6)
             rationale = "Rigid thermoplastic PET container identified for flake recovery."
         else:
             category = MATERIAL_PLASTIC
@@ -158,36 +177,57 @@ def classify_spatial_cell(cell_img: Image.Image, cell_w: int, cell_h: int) -> di
             confidence = 0.90
             rationale = "Polyethylene/PP polymer routed to automated optical sorting."
 
-    # 7. Glass: High transparency / specular reflections with smooth gradients
-    elif specular_ratio > 0.04 and edge_mean < 25 and sat_mean < 0.18:
+    # 7. Flexible Multi-Layer Packaging Film / Chip Bags (RDF):
+    elif (sat_mean > 0.34 and mean_v > 0.35 and specular_ratio > 0.02 and not is_biological_moisture) or (sat_mean > 0.45 and mean_v > 0.40):
+        category = MATERIAL_RDF
+        label = "Multi-layer Flexible Packaging (MLP)"
+        confidence = 0.91
+        rationale = "High-calorific multi-layer polymer film routed to Refuse-Derived Fuel."
+
+    # 8. Textile / Fabric:
+    elif specular_ratio < 0.02 and edge_mean > 38:
+        category = MATERIAL_TEXTILE
+        label = "Woven Fabric / Textile Scrap"
+        confidence = min(0.95, 0.86 + (edge_mean / 100.0) * 0.1)
+        rationale = "Micro-fibrous textile weave suitable for shredding into RDF or yarn."
+
+    # 9. Glass: High transparency / specular reflections with smooth gradients & low edge
+    elif specular_ratio > 0.04 and edge_mean < 20 and sat_mean < 0.18 and not is_biological_moisture:
         category = MATERIAL_GLASS
         label = "Glass Bottle / Container"
         confidence = 0.88
         rationale = "Silica glass container suitable for cullet recycling."
 
-    # 8. E-Waste: Circuit boards with copper or solder contacts
+    # 10. E-Waste: Circuit boards with copper or solder contacts
     elif (0.35 <= mean_h <= 0.48) and mean_v < 0.40 and edge_mean > 45:
         category = MATERIAL_E_WASTE
         label = "Electronic PCB / Circuit Board"
         confidence = 0.91
         rationale = "High-value e-waste component for precious metal recovery."
 
-    # Default fallback based on brightness & edge
-    elif edge_mean > 40 and sat_mean > 0.25:
+    # 11. Inert / Composite Debris (Landfill):
+    elif mean_v < 0.28 or (sat_mean < 0.14 and edge_mean > 24):
+        category = MATERIAL_MIXED
+        label = "Composite Residue / Non-Recyclable Debris"
+        confidence = 0.86
+        rationale = "Contaminated non-recoverable aggregate routed to sanitary landfill."
+
+    # Default fallback:
+    elif mean_v > 0.48 and sat_mean < 0.24:
+        category = MATERIAL_PLASTIC
+        label = "Mixed Plastic Packaging Scrap"
+        confidence = 0.84
+        rationale = "Dry synthetic polymer packaging scrap."
+    elif edge_mean > 28 and sat_mean > 0.28 and (mean_r > mean_b * 1.3):
         category = MATERIAL_ORGANIC
         label = "Mixed Compostable Bio-waste"
-        confidence = 0.82
-        rationale = "Biodegradable matter routed to compost facility."
-    elif mean_v > 0.50:
-        category = MATERIAL_PLASTIC
-        label = "Mixed Plastic Residue"
         confidence = 0.84
-        rationale = "Dry synthetic packaging scrap."
+        rationale = "Biodegradable organic matter routed to composting facility."
     else:
         category = MATERIAL_MIXED
-        label = "Mixed Municipal Debris"
+        label = "Mixed Municipal Aggregate"
         confidence = 0.80
-        rationale = "Heterogeneous waste stream."
+        rationale = "Heterogeneous non-segregated waste stream."
 
     return {
         "category": category,
@@ -201,12 +241,25 @@ def classify_spatial_cell(cell_img: Image.Image, cell_w: int, cell_h: int) -> di
     }
 
 
+def classify_crop_optical(crop_img: Image.Image) -> dict:
+    """Classifies an individual cropped image or item using optical physics."""
+    w, h = crop_img.size
+    cell_info = classify_spatial_cell(crop_img, w, h)
+    category = cell_info.get("category", MATERIAL_MIXED)
+    return {
+        **cell_info,
+        "material": category,
+        "stream": STREAM_MAP.get(category, "LANDFILL"),
+    }
+
+
 def analyze_image_optical(image_path_or_file) -> dict:
     """Comprehensive optical vision analysis on uploaded waste images:
     - Segments image into 4x4 spatial patches to detect discrete objects and their contours.
     - Evaluates material composition percentages.
     - Calculates normalized bounding boxes [ymin, xmin, ymax, xmax] (0 to 1000 and 0-100% percentages).
     - Determines primary category, confidence, severity, and recommended circular action.
+    - Dynamically detects the actual number of objects (no artificial 5-count clamp).
     """
     try:
         if hasattr(image_path_or_file, "read"):
@@ -234,7 +287,7 @@ def analyze_image_optical(image_path_or_file) -> dict:
 
     width, height = img.size
 
-    # Analyze 4x4 spatial grid
+    # Analyze 4x4 spatial grid (16 cells)
     cols, rows = 4, 4
     cell_w = width // cols
     cell_h = height // rows
@@ -282,7 +335,8 @@ def analyze_image_optical(image_path_or_file) -> dict:
         MATERIAL_TEXTILE: "Textile",
         MATERIAL_GLASS: "Glass",
         MATERIAL_E_WASTE: "E-Waste",
-        MATERIAL_MIXED: "Other / Mixed",
+        MATERIAL_RDF: "Multi-layer Packaging / RDF",
+        MATERIAL_MIXED: "Other / Landfill Residue",
     }
 
     for cat, count in sorted_cats:
@@ -299,33 +353,39 @@ def analyze_image_optical(image_path_or_file) -> dict:
         if current_sum != 100:
             materials_breakdown[0]["percentage"] += (100 - current_sum)
 
-    # Find distinct active object clusters to generate realistic bounding boxes
-    # Sort cells by visual activity (edge density + specular highlights)
-    active_cells = sorted(cells, key=lambda cl: cl["edge_mean"] + cl["specular_ratio"] * 100, reverse=True)
-    
-    # Select up to 4 distinct representative clusters
+    # Dynamic Object Detection:
+    # Instead of clamping to a hardcoded 5, detect all cells exhibiting distinct visual waste presence.
+    # A cell is active if it has meaningful edge complexity, color saturation, or specular activity.
+    active_cells = sorted(cells, key=lambda cl: cl["edge_mean"] + (cl["sat_mean"] * 40.0) + (cl["specular_ratio"] * 80.0), reverse=True)
+
+    # Dynamically select active cells above the baseline noise floor (supports 3 to 16 objects dynamically)
     selected_clusters = []
     used_coords = set()
 
+    # Threshold for an active waste cluster
     for cl in active_cells:
+        activity_score = cl["edge_mean"] + (cl["sat_mean"] * 40.0) + (cl["specular_ratio"] * 80.0)
+        # Keep distinct locations
         coord = (cl["row"], cl["col"])
         if coord in used_coords:
             continue
-        selected_clusters.append(cl)
-        used_coords.add(coord)
-        # Avoid picking immediate duplicate neighbor to keep distinct boxes
-        if len(selected_clusters) >= 5:
-            break
 
+        # Dynamic selection: keep if active, or guarantee at least 3-4 primary clusters
+        if activity_score > 18.0 or len(selected_clusters) < 4:
+            selected_clusters.append(cl)
+            used_coords.add(coord)
+
+    # If the scene is rich, selected_clusters dynamically scales up to all 16 cells.
+    # Format detected objects
     formatted_objects = []
     stream_counts = {"RECYCLABLE": 0, "RDF": 0, "ORGANIC": 0, "LANDFILL": 0}
 
     for idx, cl in enumerate(selected_clusters):
         # Bounding box in percentage coordinates (0 to 100)
-        bx_min = max(3.0, round((cl["col"] / cols) * 100 + 2.0, 1))
-        by_min = max(3.0, round((cl["row"] / rows) * 100 + 2.5, 1))
-        bw = min(38.0, round((1.0 / cols) * 100 + 5.0, 1))
-        bh = min(40.0, round((1.0 / rows) * 100 + 5.0, 1))
+        bx_min = max(2.0, round((cl["col"] / cols) * 100 + 1.5, 1))
+        by_min = max(2.0, round((cl["row"] / rows) * 100 + 2.0, 1))
+        bw = min(36.0, round((1.0 / cols) * 100 + 3.0, 1))
+        bh = min(36.0, round((1.0 / rows) * 100 + 3.0, 1))
 
         # Also normalized 0 to 1000 for Gemini / YOLO format
         ymin_1000 = int(by_min * 10)
@@ -370,7 +430,8 @@ def analyze_image_optical(image_path_or_file) -> dict:
         MATERIAL_TEXTILE: "Shred for RDF co-processing or textile thread reclamation.",
         MATERIAL_GLASS: "Transfer to color-sorted cullet recovery bins.",
         MATERIAL_E_WASTE: "Quarantine for certified e-waste component dismantling.",
-        MATERIAL_MIXED: "Screen through trommel to isolate recoverable fractions.",
+        MATERIAL_RDF: "Bale for industrial Refuse-Derived Fuel (RDF) thermal substitution.",
+        MATERIAL_MIXED: "Screen through trommel to divert non-recoverable residue to sanitary landfill.",
     }
     recommended_action = action_map.get(top_material, "Schedule collection for centralized segregation.")
 
