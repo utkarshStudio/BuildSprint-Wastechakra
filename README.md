@@ -1,26 +1,26 @@
 # WasteChakra — AI-Based Mixed Waste Detection & Routing System
 ### Complete Backend Specification (Django + Django REST Framework) — **100% Virtual / Software-Only Edition**
-> Is document ko Antigravity (ya kisi bhi AI coding agent) ko de kar pura backend project generate karwaya ja sakta hai.
-> **Important:** Ye project **poori tarah software-simulated** hai — koi physical camera, sensor, GPIO, MQTT, ya actuator hardware ki zaroorat nahi hai. Sab kuch web app ke andar hi (image upload + virtual simulation engine) chalega.
+> This specification document can be provided to Antigravity (or any AI coding assistant) to build, run, or extend the entire backend project.
+> **Important:** This project is **fully software-simulated** — no physical cameras, sensors, GPIO pins, MQTT brokers, or mechanical actuators are required. The entire workflow runs within the web application (image upload / webcam capture + virtual simulation engine).
 
 ---
 
-## 1. Project ka Context (existing repo se)
+## 1. Project Context
 
-Uploaded repo (`wastechakra-v2`) abhi ek **React + TypeScript + Vite** frontend hai jo ek **Material Recovery Facility (MRF) simulation** dikhata hai (`src/simulation/engine.ts`, `WasteChakraSimulation.tsx`). Isme:
+The frontend application (`wastechakra-web`) is a modern **React + Vite** single-page application that provides a comprehensive **Material Recovery Facility (MRF) simulation** and operations platform (`src/simulation/engine.js`, `WasteChakraSimulation.jsx`). It includes:
 
-- `SimParams` — totalWaste, moisture, contamination, organic/plastic/metal fraction (UI sliders se aate hain)
-- `routeMaterial()` — hardcoded rules se material ko destination me route karta hai
-- Ye sab **client-side JavaScript me simulated numbers** hain, koi backend nahi hai.
+- `SimParams` — totalWaste, moisture, contamination, and material fractions (controlled via UI sliders).
+- `routeMaterial()` — rules routing materials to their respective processing destinations.
+- Original simulation numbers were computed entirely client-side without persistent backend storage.
 
-**Naya goal:** Isi routing-logic ko ek **real Django DRF backend** me convert karna — lekin **fully virtual/software** rehte hue**:
-1. User waste ki **image upload** kare (webcam se browser me photo le sakte ho, ya koi bhi image file), **ya** direct simulation parameters (jaisa purane sliders me tha) de
-2. Ek **software ML/CV model** (ya, agar model nahi training karna, ek **smart virtual-classification module**) us image se material type predict kare
-3. **Virtual feature-generation engine** (koi physical sensor nahi) material-type + upload-metadata se realistic **Moisture %, Combustibility Index, Recyclability Score, RDF Suitability Score** generate kare
-4. **Decision Engine** in values ko combine karke final category decide kare: **Recycle / Bio / RDF**
-5. Result database me store ho, aur dashboard/API se analytics ke roop me dikhe
+**Goal:** Transform this routing logic into a robust **Django REST Framework (DRF) backend** while maintaining a **100% virtual / software-only** architecture:
+1. Users **upload an image** of waste (captured via browser webcam snapshot or selected from local storage), **or** provide direct simulation parameters (matching the UI sliders).
+2. A **computer vision / ML model** (or a **smart virtual classification fallback**) detects the material class from the image.
+3. A **Virtual Feature Generation Engine** generates realistic parameters based on the material type and upload metadata: **Moisture %, Combustibility Index, Recyclability Score, and RDF Suitability Score**.
+4. The **Decision Engine** evaluates these parameters to determine the final routing category: **Recycle / Bio / RDF / Reject**.
+5. Results are persisted to the database and exposed via REST APIs for dashboards and analytics.
 
-**Koi bhi step me physical hardware involve nahi hai** — na camera module, na moisture/gas sensor, na servo/actuator, na GPIO/MQTT. Sab kuch Django backend ke andar pure software logic se hota hai.
+**Zero physical hardware dependencies:** No Raspberry Pi, no microcontrollers, no external sensor modules, no servos, no GPIO pins, and no MQTT broker. All processing takes place within the Django backend and React frontend.
 
 ---
 
@@ -28,11 +28,11 @@ Uploaded repo (`wastechakra-v2`) abhi ek **React + TypeScript + Vite** frontend 
 
 ```
         ┌───────────────────────────────────────────┐
-        │   React Frontend (existing wastechakra-v2) │
+        │              React Frontend               │
         │   - Image upload widget (drag/drop or      │
         │     browser webcam snapshot → file)        │
         │   - OR "Simulate Waste" form (manual        │
-        │     sliders — matches your current UI)      │
+        │     sliders matching the simulation UI)    │
         └───────────────────┬─────────────────────────┘
                             │ POST /api/v1/pipeline/process/
                             ▼
@@ -66,99 +66,120 @@ Uploaded repo (`wastechakra-v2`) abhi ek **React + TypeScript + Vite** frontend 
                                 │
                                 ▼
                  React dashboard (charts, history,
-                 category-wise stats) — sab virtual/software
+                 category-wise statistics)
 ```
 
-**No hardware layer at all.** Camera ka matlab yaha sirf "user browser se image upload/webcam-snapshot bhejta hai" hai — koi Raspberry Pi, ESP32, ya physical sensor board involved nahi.
+**No hardware layer:** Camera input refers exclusively to browser-side image upload or HTML5 webcam capture — no physical camera modules or embedded drivers are involved.
 
 ---
 
-## 3. Tech Stack (software-only)
+## 3. Tech Stack (Software-Only)
 
 | Layer | Technology |
 |---|---|
-| Backend framework | Django 5.x + Django REST Framework |
-| Auth | **Not required** — project fully open, no login/permission system |
-| Database | PostgreSQL (prod) / SQLite (dev) |
-| Image storage | Django `ImageField` + local media folder (S3 optional, still pure software) |
-| ML inference | PyTorch / TensorFlow(-Lite) image-classification model — runs on server CPU/GPU, **not** on any edge/physical device |
-| Fallback (no-ML mode) | Rule-based **virtual classifier** using simple image stats (avg color, brightness) or manual category selection — useful if you don't want to train a real ML model at all |
-| Async/background | Celery + Redis (optional, for queueing image-processing jobs) |
-| Realtime updates | Django Channels (WebSocket) — dashboard live-refresh ke liye (still just software, browser ↔ server) |
-| API docs | `drf-spectacular` (OpenAPI/Swagger) |
+| Backend Framework | Django 5.x / 6.x + Django REST Framework |
+| Authentication | Open API endpoints (`AllowAny` permission for core classification and routing) |
+| Database | SQLite (development) / PostgreSQL (production) via `dj-database-url` |
+| Image Storage | Django `ImageField` + local media storage (or Cloudinary for cloud deployments) |
+| ML Inference | PyTorch / TensorFlow / Gemini Vision API running server-side |
+| Fallback Classifier | Rule-based **virtual classifier** utilizing image statistics (average color, brightness) |
+| Async / Background | Celery + Redis (optional, for asynchronous queue processing) |
+| Realtime Updates | Django Channels (WebSocket) for live dashboard streaming |
+| API Documentation | `drf-spectacular` (OpenAPI / Swagger) |
 
-**Hataya gaya (removed) is version me:**
-- `actuator` app, GPIO code, MQTT client, Raspberry Pi capture script, servo/bin-routing hardware — ye sab is spec me nahi hai kyunki project fully virtual rakhna hai.
-- `accounts` app, JWT/Token auth, login/permission system — **poora project bina authentication ke** hai, sab API endpoints open/public rahenge (`AllowAny` permission).
-- `settings.py` ko base/dev/prod me split nahi kiya gaya — ek hi simple `settings.py` file rakhi gayi hai.
+**Excluded from this software edition:**
+- `actuator` app, GPIO libraries, MQTT client, Raspberry Pi scripts, and physical servo/bin hardware.
+- Mandatory JWT / login barriers on core evaluation endpoints (`AllowAny` permission enabled for seamless access).
+- Multi-tier configuration split: streamlined into a single clean `settings.py`.
 
 ---
 
-## 4. Django Project & App Structure
+## 4. Project & App Structure
 
 ```
-wastechakra_backend/
-├── manage.py
-├── requirements.txt
-├── .env.example
-├── wastechakra_backend/
-│   ├── settings.py         # single plain settings file (no base/dev/prod split)
-│   ├── urls.py
-│   ├── asgi.py               # Channels ke liye (optional realtime)
-│   └── wsgi.py
+WasteChakra/
+├── backend/
+│   ├── manage.py
+│   ├── requirements.txt
+│   ├── .env
+│   ├── build.sh
+│   ├── config/
+│   │   ├── settings.py         # Unified settings configuration
+│   │   ├── urls.py
+│   │   ├── asgi.py             # ASGI entrypoint (optional Channels support)
+│   │   └── wsgi.py
+│   │
+│   ├── apps/
+│   │   ├── detection/          # Image upload -> material classification
+│   │   │   ├── models.py       # WasteImage
+│   │   │   ├── ml/             # Model loaders, inference, and virtual classifier
+│   │   │   ├── serializers.py
+│   │   │   ├── views.py        # POST /api/v1/detection/
+│   │   │   └── urls.py
+│   │   │
+│   │   ├── analysis/           # Virtual feature-generation engine
+│   │   │   ├── models.py       # SimulatedReading
+│   │   │   ├── services.py     # Synthetic moisture, combustibility, recyclability, RDF scores
+│   │   │   ├── serializers.py
+│   │   │   ├── views.py
+│   │   │   └── urls.py
+│   │   │
+│   │   ├── decision_engine/    # Core business logic: routing category decision
+│   │   │   ├── engine.py       # decide_category(features) -> Recycle / Bio / RDF / Reject
+│   │   │   ├── rules.py        # Threshold and weighted-scoring rules
+│   │   │   ├── models.py       # DecisionConfig (tunable thresholds in DB)
+│   │   │   ├── serializers.py
+│   │   │   ├── views.py
+│   │   │   └── urls.py
+│   │   │
+│   │   ├── waste_records/      # Persistence, history, and dashboard analytics
+│   │   │   ├── models.py       # WasteRecord (full pipeline result)
+│   │   │   ├── serializers.py
+│   │   │   ├── views.py        # GET /api/v1/records/, /api/v1/stats/summary/
+│   │   │   ├── filters.py
+│   │   │   └── urls.py
+│   │   │
+│   │   ├── accounts/           # User and collector profile management
+│   │   └── pickups/            # Citizen waste pickup request scheduling
+│   │
+│   ├── media/                  # Uploaded waste images
+│   └── staticfiles/
 │
-├── apps/
-│   ├── detection/                 # uploaded image -> material detection (pure software)
-│   │   ├── models.py               # WasteImage
-│   │   ├── ml/
-│   │   │   ├── model_loader.py     # loads ML model once (singleton), OR
-│   │   │   ├── inference.py         # run_inference(image) -> material probs
-│   │   │   ├── virtual_classifier.py # no-ML fallback: heuristic/random-but-realistic classifier
-│   │   │   └── preprocessing.py
-│   │   ├── serializers.py
-│   │   ├── views.py                 # POST /api/detect/
-│   │   └── urls.py
-│   │
-│   ├── analysis/                  # virtual feature-generation engine
-│   │   ├── models.py                # SimulatedReading
-│   │   ├── services.py              # generate_moisture(), generate_combustibility(),
-│   │   │                             # generate_recyclability(), generate_rdf_suitability()
-│   │   ├── serializers.py
-│   │   ├── views.py                  # POST /api/analysis/
-│   │   └── urls.py
-│   │
-│   ├── decision_engine/           # core business logic: category decision
-│   │   ├── engine.py                # decide_category(features) -> Recycle/Bio/RDF
-│   │   ├── rules.py                  # threshold + weighted-scoring rules (config driven)
-│   │   ├── models.py                  # DecisionConfig (tunable thresholds, DB-backed)
-│   │   ├── serializers.py
-│   │   ├── views.py                    # POST /api/decision/ (or called internally)
-│   │   └── urls.py
-│   │
-│   └── waste_records/             # persistence + history + dashboard stats
-│       ├── models.py                # WasteRecord (full pipeline result)
-│       ├── serializers.py
-│       ├── views.py                  # GET /api/records/, /api/stats/
-│       ├── pipeline_urls.py           # combined one-shot endpoint
-│       ├── filters.py
-│       └── urls.py
+├── frontend/
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   ├── src/
+│   │   ├── main.jsx
+│   │   ├── App.jsx
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── panels/             # Admin, Citizen, Collector, Facility dashboards
+│   │   ├── services/           # Axios API connectors
+│   │   ├── simulation/         # Interactive simulation engine & 3D visualization
+│   │   └── waste_inspection_overlay/ # Interactive live pipeline inspection modal
+│   └── public/
 │
-├── ml_models/                     # trained model files (.h5/.pt) — optional, gitignored
-├── media/                          # uploaded waste images
-└── tests/
+├── .gitignore
+├── .npmrc
+├── AGENTS.md
+└── README.md
 ```
 
-Note: `actuator/` aur `accounts/` apps **not** part of this structure hain — sab kuch `waste_records` tak khatam ho jaata hai. Result sirf database me store hota hai aur dashboard me dikhta hai, kisi hardware ko command nahi bhejta, aur koi login/permission layer bhi nahi hai — saare endpoints seedhe accessible hain.
+> **Note:** The pipeline concludes at `waste_records`. Final categories are stored in the database and visualized in real time on the React dashboard without sending physical commands to hardware actuators.
 
-### 4.1 Single `settings.py` (no base/dev/prod split)
+---
 
-Puri config ek hi file me rahegi — chhoti/medium project ke liye ye kaafi simple aur maintain karne me easy hai.
+### 4.1 Single `settings.py` Configuration
+
+The configuration is consolidated in `backend/config/settings.py` for clarity and maintainability:
 
 ```python
-# wastechakra_backend/settings.py
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 load_dotenv()
 
@@ -166,11 +187,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 DEBUG = os.getenv("DEBUG", "True") == "True"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
-    "django.contrib.auth",          # Django internally needs this even without app-level auth use
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
@@ -180,74 +201,63 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_filters",
 
+    "apps.accounts",
     "apps.detection",
     "apps.analysis",
     "apps.decision_engine",
     "apps.waste_records",
+    "apps.pickups",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "wastechakra_backend.urls"
-
-TEMPLATES = [{
-    "BACKEND": "django.template.backends.django.DjangoTemplates",
-    "DIRS": [],
-    "APP_DIRS": True,
-    "OPTIONS": {"context_processors": [
-        "django.template.context_processors.debug",
-        "django.template.context_processors.request",
-        "django.contrib.messages.context_processors.messages",
-    ]},
-}]
-
-WSGI_APPLICATION = "wastechakra_backend.wsgi.application"
+ROOT_URLCONF = "config.urls"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-    # Prod me PostgreSQL chahiye to yaha directly values daal do
-    # (ya DATABASE_URL env var parse kar lo dj-database-url se) — alag prod.py file
-    # banane ki zaroorat nahi.
+    "default": dj_database_url.config(
+        default=os.getenv("DATABASE_URL", f'sqlite:///{BASE_DIR / "dev.sqlite3"}'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
-# --- REST FRAMEWORK: authentication/permissions poori tarah open ---
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",   # no login required, anyone can call APIs
+        "rest_framework.permissions.AllowAny",
     ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [],         # no auth backend enabled
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
 }
 
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+CORS_ALLOW_ALL_ORIGINS = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 ```
 
-> Note: `django.contrib.auth` Django framework internally require karta hai (admin panel, sessions ke liye), lekin isse **kisi bhi API endpoint pe login/permission enforce nahi kiya jaa raha** — `AllowAny` + empty `DEFAULT_AUTHENTICATION_CLASSES` isko fully open rakhte hain. Django admin (`/admin/`) ke liye ek superuser bana sakte ho agar chaho (`createsuperuser`), lekin ye optional hai, sirf apna data dekhne ke liye.
-
 ---
 
-## 5. Core Data Model
+## 5. Core Data Models
 
-### 5.1 Enums & core models (apps/waste_records/models.py)
+### 5.1 Enums & Entity Schemas (`apps/waste_records/models.py`)
 
 ```python
 import uuid
@@ -273,49 +283,54 @@ class MaterialType(models.TextChoices):
 
 
 class WasteImage(models.Model):
-    """User-uploaded image (via browser file-input or webcam snapshot).
-    Purely a web upload — no physical camera hardware/driver involved."""
+    """User-uploaded image (via browser file input or webcam snapshot).
+    Purely a web upload — no physical camera hardware or embedded drivers."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     image = models.ImageField(upload_to="waste_images/%Y/%m/%d/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
     source = models.CharField(
         max_length=20,
-        choices=[("UPLOAD", "File Upload"), ("WEBCAM", "Browser Webcam Snapshot"),
-                  ("SIMULATED", "Manual Simulation, No Image")],
+        choices=[
+            ("UPLOAD", "File Upload"),
+            ("WEBCAM", "Browser Webcam Snapshot"),
+            ("SIMULATED", "Manual Simulation, No Image"),
+        ],
         default="UPLOAD",
     )
     detected_material = models.CharField(
         max_length=20, choices=MaterialType.choices, default=MaterialType.MIXED
     )
-    detection_confidence = models.FloatField(default=0.0)   # 0-1
-    raw_model_output = models.JSONField(default=dict, blank=True)  # class-probabilities
+    detection_confidence = models.FloatField(default=0.0)   # 0.0 - 1.0
+    raw_model_output = models.JSONField(default=dict, blank=True)  # Class probabilities
 
 
 class SimulatedReading(models.Model):
-    """Virtually generated feature values — NOT from a physical sensor.
-    Generated by apps/analysis/services.py based on material type
-    (+ optional randomness/noise for realism, or manual override by user)."""
+    """Virtually generated feature values — calculated without physical sensors.
+    Generated by apps/analysis/services.py based on material baseline profiles
+    with controlled random variation or user overrides."""
     image = models.OneToOneField(
         WasteImage, on_delete=models.CASCADE, related_name="simulated_reading", null=True, blank=True
     )
-    moisture_pct = models.FloatField()          # 0-100 (virtual)
-    combustibility_index = models.FloatField()  # 0-1 (virtual, calorific-value proxy)
-    recyclability_score = models.FloatField()   # 0-1 (virtual)
-    rdf_suitability_score = models.FloatField() # 0-1 (virtual)
-    contamination_pct = models.FloatField(default=0.0)  # virtual
-    is_manual_override = models.BooleanField(default=False)  # user set values by hand
+    moisture_pct = models.FloatField()          # 0 - 100 (virtual)
+    combustibility_index = models.FloatField()  # 0.0 - 1.0 (calorific value proxy)
+    recyclability_score = models.FloatField()   # 0.0 - 1.0 (virtual)
+    rdf_suitability_score = models.FloatField() # 0.0 - 1.0 (virtual)
+    contamination_pct = models.FloatField(default=0.0)
+    is_manual_override = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
 class WasteRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    image = models.ForeignKey(WasteImage, on_delete=models.CASCADE, related_name="records", null=True, blank=True)
+    image = models.ForeignKey(
+        WasteImage, on_delete=models.CASCADE, related_name="records", null=True, blank=True
+    )
     simulated_reading = models.ForeignKey(
         SimulatedReading, on_delete=models.SET_NULL, null=True, related_name="records"
     )
     final_category = models.CharField(max_length=20, choices=WasteCategory.choices)
     decision_confidence = models.FloatField(default=0.0)
-    decision_breakdown = models.JSONField(default=dict)   # score-per-category, rule trace
+    decision_breakdown = models.JSONField(default=dict)   # Score breakdown and rule trace
     processed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -323,32 +338,30 @@ class WasteRecord(models.Model):
         indexes = [models.Index(fields=["final_category", "processed_at"])]
 ```
 
-Notice: **`routed_to_bin` aur actuator field hata diya gaya hai** — final category database me store hoti hai aur dashboard pe dikhti hai, koi physical bin ko command nahi jaata.
-
 ---
 
-## 6. Decision Engine — Core Logic (yahi aapka "dimag" hai, no hardware needed)
+## 6. Decision Engine — Core Logic
 
 `apps/decision_engine/rules.py`
 
-### 6.1 Feature inputs (sab virtual/software-generated)
+### 6.1 Feature Inputs (Virtual / Software-Generated)
 ```
-moisture_pct            : 0-100
-combustibility_index    : 0-1
-recyclability_score     : 0-1
-rdf_suitability_score   : 0-1
-contamination_pct       : 0-100
+moisture_pct            : 0 - 100
+combustibility_index    : 0.0 - 1.0
+recyclability_score     : 0.0 - 1.0
+rdf_suitability_score   : 0.0 - 1.0
+contamination_pct       : 0 - 100
 detected_material       : enum (PLASTIC, PAPER, METAL, GLASS, ORGANIC, TEXTILE, E_WASTE, MIXED)
-detection_confidence    : 0-1
+detection_confidence    : 0.0 - 1.0
 ```
 
-### 6.2 Rule-based decision tree (interpretable — recommended starting version)
+### 6.2 Rule-Based Decision Tree
 
 ```python
 def rule_based_decision(features: dict) -> tuple[str, dict]:
     """
-    Returns (category, trace) where category in {RECYCLE, BIO, RDF, REJECT}
-    trace = explanation dict for auditing/dashboard
+    Returns (category, trace) where category is in {RECYCLE, BIO, RDF, REJECT}
+    trace = audit dictionary explaining which rules triggered.
     """
     material = features["detected_material"]
     moisture = features["moisture_pct"]
@@ -360,42 +373,42 @@ def rule_based_decision(features: dict) -> tuple[str, dict]:
 
     trace = {"material": material, "rules_fired": []}
 
-    # 0. Low-confidence detection -> flag for manual review
+    # 0. Low confidence detection -> Flag for manual review
     if confidence < 0.4:
         trace["rules_fired"].append("low_confidence_detection")
         return "REJECT", trace
 
-    # 1. Hard material-based overrides
+    # 1. Non-combustible high-value material overrides
     if material in ("METAL", "GLASS", "E_WASTE"):
         trace["rules_fired"].append(f"material_override_{material}")
         return "RECYCLE", trace
 
-    # 2. High moisture / organic -> Bio (composting/AD)
+    # 2. High moisture or organic waste -> Bio (composting / biomethanation)
     if material == "ORGANIC" or moisture > 55:
         trace["rules_fired"].append("high_moisture_or_organic")
         return "BIO", trace
 
-    # 3. High recyclability + low contamination -> Recycle
+    # 3. High recyclability with low contamination -> Recycle
     if recyclability >= 0.65 and contamination <= 30:
         trace["rules_fired"].append("high_recyclability_low_contamination")
         return "RECYCLE", trace
 
-    # 4. High combustibility + high RDF suitability + low moisture -> RDF
+    # 4. High calorific value + RDF suitability + low moisture -> RDF
     if combustibility >= 0.55 and rdf_score >= 0.5 and moisture < 40:
         trace["rules_fired"].append("high_combustibility_rdf_fit")
         return "RDF", trace
 
-    # 5. Contaminated plastics/paper that can't recycle but burn -> RDF
+    # 5. Contaminated combustibles unsuitable for clean recycling -> RDF
     if material in ("PLASTIC", "PAPER", "TEXTILE") and contamination > 30:
         trace["rules_fired"].append("contaminated_combustible_to_rdf")
         return "RDF", trace
 
-    # 6. fallback
+    # 6. Fallback rejection
     trace["rules_fired"].append("fallback_reject")
     return "REJECT", trace
 ```
 
-### 6.3 Weighted scoring model (Production v2, more tunable)
+### 6.3 Weighted Scoring & Hybrid Engine
 
 ```python
 CATEGORY_WEIGHTS = {
@@ -440,7 +453,7 @@ def decide_category(features: dict, mode: str = "hybrid") -> tuple[str, dict, fl
     elif mode == "weighted":
         cat, trace = weighted_decision(features)
         conf = max(trace.get("scores", {}).values(), default=0.5)
-    else:  # hybrid
+    else:  # Hybrid: attempt rule-based first; fall back to weighted if rejected
         cat, trace = rule_based_decision(features)
         if cat == "REJECT":
             cat2, trace2 = weighted_decision(features)
@@ -451,12 +464,11 @@ def decide_category(features: dict, mode: str = "hybrid") -> tuple[str, dict, fl
     return cat, trace, conf
 ```
 
-> **Tuning tip:** thresholds ko `DecisionConfig` DB model me rakho (below), taaki Django admin se live tune ho sake bina code-deploy ke.
+### 6.4 Tunable Configuration Model (`apps/decision_engine/models.py`)
 
 ```python
-# apps/decision_engine/models.py
 class DecisionConfig(models.Model):
-    """Singleton-style config row, editable from admin panel."""
+    """Singleton configuration row editable from the admin panel."""
     recyclability_threshold = models.FloatField(default=0.65)
     contamination_threshold = models.FloatField(default=30.0)
     combustibility_threshold = models.FloatField(default=0.55)
@@ -472,9 +484,9 @@ class DecisionConfig(models.Model):
 
 ---
 
-## 7. Virtual Feature-Generation Engine (replaces "sensors" — pure software)
+## 7. Virtual Feature-Generation Engine (Pure Software)
 
-Ye module hi wo jagah hai jaha aapke purane `SimParams` sliders ka concept backend me shift ho jaata hai. **Koi physical sensor read nahi hota** — sab material-type + randomness se realistic simulate hota hai.
+This service replaces physical IoT sensors with physics-grounded synthetic baseline profiles:
 
 `apps/analysis/services.py`
 
@@ -499,10 +511,9 @@ def generate_virtual_features(
     contamination_pct: float | None = None,
     add_noise: bool = True,
 ) -> dict:
-    """Pure software simulation of what a sensor 'would' read, based on
-    known baseline profile for the detected material. add_noise=True
-    injects small random variation so every batch doesn't look identical
-    (mirrors your original SimParams-slider randomness, but automatic)."""
+    """Pure software simulation of physical parameters based on baseline
+    profiles for the detected material. Controlled jitter provides realistic
+    variability across batches."""
     moisture, combustibility, recyclability, rdf = MATERIAL_BASELINE.get(
         material, MATERIAL_BASELINE["MIXED"]
     )
@@ -515,7 +526,7 @@ def generate_virtual_features(
         recyclability = _jitter(recyclability, 0.08, lo=0, hi=1)
         rdf = _jitter(rdf, 0.08, lo=0, hi=1)
 
-    # contamination reduces recyclability, slightly increases RDF suitability
+    # Contamination degrades recyclability and adjusts RDF suitability
     recyclability = max(0, recyclability - contamination_pct / 200)
     rdf = min(1, rdf + contamination_pct / 300)
 
@@ -535,12 +546,11 @@ def _jitter(value: float, spread: float, lo: float = 0, hi: float = 100) -> floa
 
 
 def manual_features(payload: dict) -> dict:
-    """When a user manually enters values in a 'Simulate Waste' form
-    (like your original SimParams sliders), just pass them through
-    with validation — no image / ML needed at all."""
+    """Passes user-supplied values from the 'Simulate Waste' form
+    through validation directly without requiring an image or ML model."""
     return {
         "detected_material": payload.get("detected_material", "MIXED"),
-        "detection_confidence": 1.0,   # user-provided = fully "confident"
+        "detection_confidence": 1.0,
         "moisture_pct": float(payload["moisture_pct"]),
         "combustibility_index": float(payload["combustibility_index"]),
         "recyclability_score": float(payload["recyclability_score"]),
@@ -549,53 +559,22 @@ def manual_features(payload: dict) -> dict:
     }
 ```
 
-Do modes support kiye hain:
-- **Auto mode**: image upload karo → ML/virtual-classifier material detect karta hai → `generate_virtual_features()` values banata hai
-- **Manual/Simulate mode**: koi image nahi, user seedha sliders se moisture/combustibility/etc. values de (bilkul aapke current React app jaisa) → `manual_features()` use hota hai
+Two operational modes are supported:
+- **Auto Mode:** Image upload -> ML / Virtual Classifier detects material -> `generate_virtual_features()` generates parameters.
+- **Manual / Simulation Mode:** Direct slider inputs from UI -> `manual_features()` formats inputs for the decision engine.
 
-Dono modes fully software hain, dono same `decision_engine` se guzarte hain.
+Both modes share the identical `decision_engine` pipeline and database schema.
 
 ---
 
-## 8. Image Classification — Two Options (dono software-only)
+## 8. Image Classification Options
 
-### Option A — Real ML model (better accuracy, thoda training effort)
+### Option A — Machine Learning Vision Pipeline (High Accuracy)
+`apps/detection/ml/inference.py` / `apps/detection/yolo_service/`
 
-`apps/detection/ml/inference.py`
+Runs server-side image classification (via Gemini Vision API, YOLO, or local PyTorch/TensorFlow models). Images are processed in server memory or on local disk with zero edge device deployment requirements.
 
-```python
-class MaterialDetector:
-    """Runs on the Django server's CPU/GPU. No edge device, no camera driver —
-    just a normal image-classification model file loaded in Python."""
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._load_model()
-        return cls._instance
-
-    def _load_model(self):
-        import tensorflow as tf
-        self.model = tf.keras.models.load_model("ml_models/waste_classifier.h5")
-        self.labels = ["PLASTIC", "PAPER", "METAL", "GLASS", "ORGANIC", "TEXTILE", "E_WASTE"]
-
-    def predict(self, image_path: str) -> tuple[str, float, dict]:
-        from .preprocessing import preprocess_image
-        import numpy as np
-        img = preprocess_image(image_path, target_size=(224, 224))
-        probs = self.model.predict(np.expand_dims(img, axis=0))[0]
-        best_idx = int(probs.argmax())
-        material = self.labels[best_idx]
-        confidence = float(probs[best_idx])
-        all_probs = {label: float(p) for label, p in zip(self.labels, probs)}
-        return material, confidence, all_probs
-```
-
-Training suggestion: **TrashNet** ya **TACO** dataset, transfer learning on MobileNetV2/EfficientNet, train on your own laptop/Colab (free GPU), export `.h5`/`.pt`, drop into `ml_models/` — server pe hi predict hota hai, koi hardware deployment nahi.
-
-### Option B — No-ML "Virtual Classifier" fallback (agar model train nahi karna, fully rule/heuristic based)
-
+### Option B — Virtual Classifier Fallback (Zero Training Setup)
 `apps/detection/ml/virtual_classifier.py`
 
 ```python
@@ -603,17 +582,15 @@ from PIL import Image
 import random
 
 def virtual_classify(image_path: str) -> tuple[str, float, dict]:
-    """A software-only 'classifier' that doesn't need a trained ML model.
-    Uses simple image statistics (avg color/brightness) as a rough proxy,
-    combined with randomness, purely to demo the end-to-end pipeline.
-    Swap this out for MaterialDetector once you're ready to add real ML."""
+    """Lightweight software classifier using RGB statistical distributions
+    and heuristic thresholds. Provides instant end-to-end testing without
+    requiring pre-trained weights."""
     img = Image.open(image_path).convert("RGB").resize((50, 50))
     pixels = list(img.getdata())
     avg_r = sum(p[0] for p in pixels) / len(pixels)
     avg_g = sum(p[1] for p in pixels) / len(pixels)
     avg_b = sum(p[2] for p in pixels) / len(pixels)
 
-    # crude heuristic: brightness/hue -> rough material guess
     materials = ["PLASTIC", "PAPER", "METAL", "GLASS", "ORGANIC", "TEXTILE"]
     if avg_g > avg_r and avg_g > avg_b:
         material = "ORGANIC"
@@ -630,61 +607,46 @@ def virtual_classify(image_path: str) -> tuple[str, float, dict]:
     return material, confidence, all_probs
 ```
 
-**Recommendation:** Shuru me Option B (virtual classifier) se poora pipeline end-to-end bana lo aur test karo — ye zero training effort me kaam karta hai. Baad me sirf `detection/views.py` me ek line change karke Option A (real ML) plug kar sakte ho, baaki pura system waisa hi rahega.
-
 ---
 
-## 9. API Endpoints (DRF) — sab HTTP/JSON, no hardware protocol
+## 9. API Endpoints (DRF)
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/v1/detection/detect/` | Image upload karo → material class + confidence return (ML ya virtual classifier) |
-| `POST` | `/api/v1/analysis/generate/` | Given material → 4 virtual features return |
-| `POST` | `/api/v1/analysis/manual/` | Given manual slider values (no image) → validated features return |
-| `POST` | `/api/v1/decision/decide/` | Given features → final category (Recycle/Bio/RDF/Reject) |
-| `POST` | `/api/v1/pipeline/process/` | **One-shot combined endpoint (image mode)**: image upload → detect → generate features → decide → save |
-| `POST` | `/api/v1/pipeline/simulate/` | **One-shot combined endpoint (manual mode)**: manual slider values → decide → save (no image needed) |
-| `GET` | `/api/v1/records/` | Paginated waste record history (filters: category, date range) |
-| `GET` | `/api/v1/records/{id}/` | Single record detail with image + full decision trace |
-| `GET` | `/api/v1/stats/summary/` | Dashboard stats: category-wise counts, %, trend over time |
-| `GET` | `/api/v1/config/decision-rules/` | Current threshold/weight config (for tuning UI) |
-| `PATCH` | `/api/v1/config/decision-rules/` | Update thresholds without redeploy |
+| `POST` | `/api/v1/detection/detect/` | Upload image → returns material class and confidence |
+| `POST` | `/api/v1/analysis/generate/` | Given a material class → returns 4 generated virtual parameters |
+| `POST` | `/api/v1/analysis/manual/` | Given manual slider inputs → returns validated parameters |
+| `POST` | `/api/v1/decision/decide/` | Given parameters → returns routing category (`RECYCLE`/`BIO`/`RDF`/`REJECT`) |
+| `POST` | `/api/v1/pipeline/process/` | **One-shot combined pipeline (image mode)**: Upload → Detect → Synthesize → Decide → Persist |
+| `POST` | `/api/v1/pipeline/simulate/` | **One-shot combined pipeline (manual mode)**: Sliders → Synthesize → Decide → Persist |
+| `GET` | `/api/v1/records/` | Paginated waste records history (filterable by category, date) |
+| `GET` | `/api/v1/records/{id}/` | Single record detail with image URL and decision breakdown |
+| `GET` | `/api/v1/stats/summary/` | Aggregated dashboard metrics: category distribution, diversion rate |
+| `GET` | `/api/v1/config/decision-rules/` | Current decision thresholds and weights |
+| `PATCH`| `/api/v1/config/decision-rules/` | Live update of decision thresholds without application redeployment |
 
-### 9.1 Combined pipeline — image mode
+### 9.1 Combined Pipeline — Image Mode
 
 ```python
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser
-from apps.detection.ml.virtual_classifier import virtual_classify
-from apps.analysis.services import generate_virtual_features
-from apps.decision_engine.engine import decide_category
-from apps.detection.models import WasteImage
-from apps.analysis.models import SimulatedReading
-from .models import WasteRecord
-from .serializers import WasteRecordSerializer
-
-
 class ProcessWasteImageView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
         image_file = request.FILES["image"]
-        source = request.data.get("source", "UPLOAD")  # UPLOAD or WEBCAM
+        source = request.data.get("source", "UPLOAD")
 
-        # 1. Save uploaded image
+        # 1. Persist uploaded image
         waste_image = WasteImage.objects.create(image=image_file, source=source)
 
-        # 2. Classify (swap virtual_classify -> MaterialDetector().predict for real ML)
+        # 2. Classify material
         material, confidence, all_probs = virtual_classify(waste_image.image.path)
         waste_image.detected_material = material
         waste_image.detection_confidence = confidence
         waste_image.raw_model_output = all_probs
         waste_image.save()
 
-        # 3. Generate virtual features (software simulation, no sensors)
+        # 3. Generate virtual parameters
         features = generate_virtual_features(material, confidence)
-
         reading = SimulatedReading.objects.create(
             image=waste_image,
             moisture_pct=features["moisture_pct"],
@@ -694,10 +656,10 @@ class ProcessWasteImageView(APIView):
             contamination_pct=features["contamination_pct"],
         )
 
-        # 4. Decide
+        # 4. Evaluate routing decision
         category, trace, decision_confidence = decide_category(features, mode="hybrid")
 
-        # 5. Save record
+        # 5. Persist final record
         record = WasteRecord.objects.create(
             image=waste_image,
             simulated_reading=reading,
@@ -709,7 +671,7 @@ class ProcessWasteImageView(APIView):
         return Response(WasteRecordSerializer(record, context={"request": request}).data, status=201)
 ```
 
-### 9.2 Combined pipeline — manual/simulate mode (no image at all)
+### 9.2 Combined Pipeline — Manual Simulation Mode
 
 ```python
 class ProcessWasteSimulateView(APIView):
@@ -735,46 +697,12 @@ class ProcessWasteSimulateView(APIView):
         return Response(WasteRecordSerializer(record, context={"request": request}).data, status=201)
 ```
 
-Ye second endpoint bilkul aapke **current React frontend ke sliders** ke saath directly kaam karega — koi image ya camera involve nahi.
-
-### 9.3 Serializer
-
-```python
-from rest_framework import serializers
-from .models import WasteRecord
-
-class WasteRecordSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
-    material = serializers.SerializerMethodField()
-    moisture_pct = serializers.FloatField(source="simulated_reading.moisture_pct")
-    combustibility_index = serializers.FloatField(source="simulated_reading.combustibility_index")
-    recyclability_score = serializers.FloatField(source="simulated_reading.recyclability_score")
-    rdf_suitability_score = serializers.FloatField(source="simulated_reading.rdf_suitability_score")
-
-    class Meta:
-        model = WasteRecord
-        fields = [
-            "id", "image_url", "material", "moisture_pct", "combustibility_index",
-            "recyclability_score", "rdf_suitability_score", "final_category",
-            "decision_confidence", "decision_breakdown", "processed_at",
-        ]
-
-    def get_image_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        return request.build_absolute_uri(obj.image.image.url) if request else obj.image.image.url
-
-    def get_material(self, obj):
-        return obj.image.detected_material if obj.image else obj.simulated_reading.image and "MIXED"
-```
-
-### 9.4 Sample response
+### 9.3 Sample JSON Response
 
 ```json
 {
-  "id": "8f3e9c2a-...",
-  "image_url": "http://host/media/waste_images/2026/09/06/img1.jpg",
+  "id": "8f3e9c2a-a921-4d32-b6f7-3e4b78912345",
+  "image_url": "http://localhost:8000/media/waste_images/2026/09/20/sample.jpg",
   "material": "PLASTIC",
   "moisture_pct": 5.4,
   "combustibility_index": 0.71,
@@ -786,13 +714,15 @@ class WasteRecordSerializer(serializers.ModelSerializer):
     "material": "PLASTIC",
     "rules_fired": ["high_recyclability_low_contamination"]
   },
-  "processed_at": "2026-09-06T10:12:00Z"
+  "processed_at": "2026-09-20T14:10:00Z"
 }
 ```
 
 ---
 
-## 10. Dashboard / Stats Endpoint
+## 10. Dashboard & Analytics Summary
+
+`apps/waste_records/views.py`
 
 ```python
 class StatsSummaryView(APIView):
@@ -809,13 +739,11 @@ class StatsSummaryView(APIView):
         })
 ```
 
-Existing React frontend (`WasteChakraSimulation.tsx`) ke fake in-browser charts ko is real `/api/v1/stats/summary/` aur `/api/v1/records/` data se replace kiya ja sakta hai — `engine.ts` ka simulation logic ab backend `decision_engine` app me chala gaya hai, frontend sirf API call karega aur result dikhayega.
-
 ---
 
-## 11. Optional: Realtime via Django Channels (still pure software)
+## 11. Optional Realtime Streaming (Django Channels)
 
-Agar dashboard ko live-refresh chahiye jab bhi koi naya record process ho (bina page reload):
+To deliver instant live dashboard updates whenever a new waste record is evaluated:
 
 ```python
 class WasteRecordConsumer(AsyncJsonWebsocketConsumer):
@@ -827,14 +755,14 @@ class WasteRecordConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json(event["data"])
 ```
 
-Signal se broadcast: `post_save` on `WasteRecord` → `channel_layer.group_send(...)`. Ye purely browser ↔ server WebSocket hai, koi hardware nahi.
+Connected via a Django `post_save` signal on `WasteRecord` to push updates over standard WebSocket connections directly to the React dashboard.
 
 ---
 
-## 12. requirements.txt (starter, no hardware libraries)
+## 12. Requirements (`backend/requirements.txt`)
 
 ```
-Django>=5.0,<5.1
+Django>=5.0
 djangorestframework>=3.15
 drf-spectacular
 django-cors-headers
@@ -842,60 +770,70 @@ django-filter
 Pillow
 psycopg2-binary
 python-dotenv
-celery          # optional
-redis           # optional
-channels        # optional, for realtime dashboard
-channels-redis  # optional
-tensorflow      # only if using real ML (Option A); skip for virtual-classifier-only setup
-numpy
+whitenoise
+dj-database-url
+google-generativeai  # For multimodal AI Vision
+torch                # Optional: For local deep learning classification
 ```
-
-Notice: `RPi.GPIO`, `paho-mqtt`, `tflite-runtime` (edge-specific) hata diye gaye hain — ye sab hardware-oriented packages the.
 
 ---
 
-## 13. .env.example
+## 13. Environment Configuration (`backend/.env`)
 
-```
+```ini
 DEBUG=True
-SECRET_KEY=change-me
-DATABASE_URL=postgres://user:pass@localhost:5432/wastechakra
-ALLOWED_HOSTS=localhost,127.0.0.1
-CORS_ALLOWED_ORIGINS=http://localhost:5173
-ML_MODEL_PATH=ml_models/waste_classifier.h5
-USE_REAL_ML=False   # False = virtual_classifier.py used, True = real MaterialDetector
+SECRET_KEY=django-insecure-key-here
+ALLOWED_HOSTS=*
+DATABASE_URL=sqlite:///c:/Users/utkar/OneDrive/Desktop/WasteChakra/backend/dev.sqlite3
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ---
 
-## 14. Development Roadmap (Antigravity ko is order me build karwao)
+## 14. Development Roadmap
 
-1. **Phase 0 — Scaffold**: Django project + apps (`detection`, `analysis`, `decision_engine`, `waste_records`) create karo, ek single `settings.py` (no split), CORS, DRF config (`DEFAULT_PERMISSION_CLASSES: AllowAny`, since no auth).
-2. **Phase 1 — Models & Admin**: `WasteImage`, `SimulatedReading`, `WasteRecord`, `DecisionConfig` models banao, migrations run karo, Django admin me register karo (image thumbnail preview ke saath).
-3. **Phase 2 — Decision Engine (independent of ML/image, banao pehle isse)**: `rules.py` + `engine.py` likho, unit tests likho with mock feature dicts.
-4. **Phase 3 — Virtual Analysis Engine**: `generate_virtual_features()` aur `manual_features()` likho — dummy material input se features generate karo.
-5. **Phase 4 — Detection app, virtual classifier se shuru karo**: `virtual_classifier.py` (Option B, no ML training needed) plug karo taaki poora pipeline turant end-to-end test ho sake.
-6. **Phase 5 — Combined pipeline endpoints**: `POST /api/v1/pipeline/process/` (image mode) aur `POST /api/v1/pipeline/simulate/` (manual mode).
-7. **Phase 6 — Records & Stats API**: history, filtering, pagination, `/stats/summary/`.
-8. **Phase 7 — Frontend integration**: existing React app (`wastechakra-v2`) ke `engine.ts` client-side simulation ko real API calls se replace karo — sliders wala UI `pipeline/simulate/` ko call kare, image-upload wala UI `pipeline/process/` ko.
-9. **Phase 8 — Optional real ML**: agar chaho to `TrashNet`/`TACO` dataset pe model train karke Option A (`MaterialDetector`) `USE_REAL_ML=True` flag se enable karo — baaki pura system same rahega.
-10. **Phase 9 — Realtime (optional)**: Channels + WebSocket for live dashboard.
+1. **Phase 0 — Scaffold**: Configure Django project and apps (`detection`, `analysis`, `decision_engine`, `waste_records`, `accounts`, `pickups`), single unified `settings.py`, CORS, and DRF permissions.
+2. **Phase 1 — Models & Migrations**: Define `WasteImage`, `SimulatedReading`, `WasteRecord`, and `DecisionConfig` schemas and apply database migrations.
+3. **Phase 2 — Decision Engine**: Implement `rules.py`, `engine.py`, and comprehensive unit tests with feature dictionary payloads.
+4. **Phase 3 — Virtual Analysis Engine**: Implement `generate_virtual_features()` and `manual_features()` with baseline material profiles.
+5. **Phase 4 — Detection Service**: Deploy `virtual_classifier.py` and Gemini Vision integration for zero-hardware automated image classification.
+6. **Phase 5 — Pipeline Endpoints**: Expose `/api/v1/pipeline/process/` (image mode) and `/api/v1/pipeline/simulate/` (manual mode).
+7. **Phase 6 — Analytics & Records**: Implement paginated history, category filtering, and `/api/v1/stats/summary/`.
+8. **Phase 7 — Frontend Integration**: Connect the React dashboard and the interactive 4-stage inspection overlay to the live backend endpoints.
+9. **Phase 8 — Production Deployment**: Configure WhiteNoise static asset serving, environment variables, and deployment on cloud hosting platforms (e.g. Render, Vercel).
 
 ---
 
 ## 15. Testing Strategy
 
-- **Unit tests**: `decision_engine` rules — sabse important, business-critical logic. Har rule ke liye ek test case (edge cases: moisture=100, contamination=0, low confidence, etc.)
-- **Integration tests**: dono pipeline endpoints (`process/` aur `simulate/`) — `APITestCase` se full flow verify karo (dummy image / dummy JSON payload se).
-- Koi hardware-in-the-loop testing ki zaroorat nahi — sab kuch mock data se test ho sakta hai.
+- **Unit Tests**: Test `decision_engine` rules covering all operational boundaries (e.g., moisture = 100%, contamination = 0%, low confidence scores).
+- **Integration Tests**: Verify both pipeline endpoints (`process/` and `simulate/`) using `APITestCase` with mock image payloads and simulation inputs.
+- **Pure Software Execution**: All test cases run without hardware fixtures or physical test benches.
 
 ---
 
-## 16. Categories Note
+## 16. Classification Categories
 
-**Recycle, Bio, RDF** — `WasteCategory` enum me `RECYCLE`, `BIO`, `RDF` rakhe hain, plus ek `REJECT` category jab confidence bahut low ho ya koi threshold match na kare (safety fallback — dashboard me "needs manual review" ke roop me dikhega, koi physical action nahi).
+- **`RECYCLE`**: Clean recyclables (plastics, paper, metals, glass, e-waste) with low contamination suitable for mechanical or chemical recycling.
+- **`BIO`**: High-moisture organic and food waste directed to composting or biomethanation/anaerobic digestion.
+- **`RDF` (Refuse Derived Fuel)**: High-combustibility materials (contaminated plastics, multi-layer packaging, dry textiles) directed to industrial co-processing and energy recovery.
+- **`REJECT`**: Low-confidence detections or unprocessable hazardous mixtures flagged for manual quality review.
 
 ---
 
-### Next Steps
-Ye poora spec Antigravity ko de kar bolo: *"Is markdown spec ke according complete Django DRF project scaffold karo, Phase 0 se Phase 7 tak (fully virtual/software version, koi hardware code mat likhna, koi authentication mat lagana, ek hi settings.py file rakhna), har phase ke baad migrations aur basic tests bhi likho."* Agent step-by-step pura codebase generate kar dega — pure web application, deployable on any normal server, no physical components required, no login system required.
+### Quick Start Guide
+
+#### 1. Start the Backend Server
+```bash
+cd backend
+python manage.py runserver 127.0.0.1:8000
+```
+- API Root: `http://127.0.0.1:8000/api/v1/`
+- Stats Summary: `http://127.0.0.1:8000/api/v1/stats/summary/`
+
+#### 2. Start the Frontend Server
+```bash
+cd frontend
+npm run dev
+```
+- Web Application: `http://localhost:5173`
