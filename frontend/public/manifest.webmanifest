@@ -1,0 +1,24 @@
+{
+  "name": "WasteChakra — Waste Management & Resource Recovery",
+  "short_name": "WasteChakra",
+  "description": "Report waste, schedule pickups, track processing, and earn rewards. Turning Waste Into Resources.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3fcf2",
+  "theme_color": "#0a3a2a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,230 @@
+/* =========================================================================
+   WASTE INSPECTION OVERLAY STYLES - MODERN WASTECHAKRA INDUSTRIAL DESIGN
+   Theme Colors: 
+   Primary: #00180b (Deep obsidian forest)
+   Secondary Container: #abf854 (Vibrant electric lime)
+   Surface: #f3fcf2 (Crisp sage mint)
+   Card Surface: #ffffff (Pure clean white)
+   Border: #dce5db / #e2ebe1
+   Streams: 
+     - Recyclable: #059669 (Emerald)
+     - RDF Fuel: #ea580c (Amber / Orange)
+     - Organic: #16a34a (Leaf Green)
+     - Landfill: #475569 (Slate Charcoal)
+   ========================================================================= */
+
+/* Button Glow & Accent Animations */
+.btn-chakra-primary {
+  background-color: #00180b;
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(0, 24, 11, 0.15);
+}
+
+.btn-chakra-primary:hover:not(:disabled) {
+  background-color: #0a3a2a;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 24, 11, 0.25);
+}
+
+.btn-chakra-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-chakra-accent {
+  background-color: #abf854;
+  color: #00180b;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(171, 248, 84, 0.25);
+}
+
+.btn-chakra-accent:hover:not(:disabled) {
+  background-color: #9de445;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(171, 248, 84, 0.4);
+}
+
+/* Conveyor Belt Animated Track */
+.conveyor-belt-track {
+  background: repeating-linear-gradient(
+    90deg,
+    #f1f5f9 0px,
+    #f1f5f9 16px,
+    #e2e8f0 16px,
+    #e2e8f0 20px
+  );
+  background-size: 40px 100%;
+}
+
+.conveyor-belt-track.animated {
+  animation: conveyor-flow 0.8s linear infinite;
+}
+
+@keyframes conveyor-flow {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 0;
+  }
+}
+
+/* Laser Scanner Beam on Ingested Item */
+.scanner-laser-beam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2.5px;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981, 0 0 20px #34d399;
+  animation: laser-sweep 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes laser-sweep {
+  0% {
+    left: 4%;
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    left: 96%;
+    opacity: 0.7;
+  }
+}
+
+/* Chute Particle Drop Animation */
+@keyframes drop-to-bin {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(10px) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(65px) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(85px) scale(0.6);
+  }
+}
+
+.waste-particle-glide {
+  animation: drop-to-bin 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* Floating Counter Badge rising from dustbin */
+@keyframes float-badge-up {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1.1);
+  }
+  75% {
+    opacity: 0.9;
+    transform: translateY(-28px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.8);
+  }
+}
+
+.float-badge-anim {
+  animation: float-badge-up 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Dustbin impact bounce */
+@keyframes dustbin-bounce {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.05) translateY(-3px);
+  }
+  65% {
+    transform: scale(0.97) translateY(1px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+.dustbin-impact-active {
+  animation: dustbin-bounce 0.5s ease-out;
+}
+
+/* Rotating Gear */
+.spin-gear {
+  animation: spin 3s linear infinite;
+}
+
+.spin-gear-reverse {
+  animation: spin-reverse 3s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-reverse {
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+/* Bounding Boxes for Stage 3 */
+.bbox-recyclable {
+  border: 2px solid #059669;
+  background-color: rgba(5, 150, 105, 0.14);
+  box-shadow: 0 0 12px rgba(5, 150, 105, 0.25);
+}
+
+.bbox-rdf {
+  border: 2px solid #ea580c;
+  background-color: rgba(234, 88, 12, 0.14);
+  box-shadow: 0 0 12px rgba(234, 88, 12, 0.25);
+}
+
+.bbox-organic {
+  border: 2px solid #16a34a;
+  background-color: rgba(22, 163, 74, 0.14);
+  box-shadow: 0 0 12px rgba(22, 163, 74, 0.25);
+}
+
+.bbox-landfill {
+  border: 2px solid #64748b;
+  background-color: rgba(100, 116, 139, 0.14);
+  box-shadow: 0 0 12px rgba(100, 116, 139, 0.25);
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

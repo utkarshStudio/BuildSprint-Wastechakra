@@ -1,0 +1,18 @@
+export const WASTE_ITEMS = [
+  { id: "foodwaste", material: "organic", name: { en: "Cooked Food Waste", hi: "पका हुआ खाना" }, mass: 0.35, moisture: 75, contam: 8 },
+  { id: "vegpeel", material: "organic", name: { en: "Vegetable / Fruit Peels", hi: "सब्ज़ी-फल के छिलके" }, mass: 0.25, moisture: 85, contam: 6 },
+  { id: "garden", material: "organic", name: { en: "Garden / Green Waste", hi: "हरा बगीचे का कचरा" }, mass: 0.5, moisture: 65, contam: 4 },
+  { id: "pet", material: "plastic", name: { en: "PET Bottle", hi: "PET बोतल" }, mass: 0.03, moisture: 4, contam: 6 },
+  { id: "carrybag", material: "plastic", name: { en: "Plastic Carry Bag", hi: "प्लास्टिक बैग" }, mass: 0.006, moisture: 3, contam: 35 },
+  { id: "multilayer", material: "plastic", name: { en: "Multi-Layer Packaging", hi: "मल्टी-लेयर पैकेजिंग" }, mass: 0.02, moisture: 5, contam: 30 },
+  { id: "newsprint", material: "paper", name: { en: "Newspaper / Office Paper", hi: "अख़बार / ऑफिस पेपर" }, mass: 0.04, moisture: 8, contam: 10 },
+  { id: "cardboard", material: "paper", name: { en: "Cardboard Carton", hi: "कार्डबोर्ड बॉक्स" }, mass: 0.25, moisture: 12, contam: 15 },
+  { id: "steel", material: "ferrous", name: { en: "Steel Can / Tin", hi: "स्टील केन / टिन" }, mass: 0.04, moisture: 5, contam: 5 },
+  { id: "scrap", material: "ferrous", name: { en: "Ferrous Scrap", hi: "लोहे का कबाड़" }, mass: 0.8, moisture: 4, contam: 12 },
+  { id: "canal", material: "aluminium", name: { en: "Aluminium Can", hi: "अल्युमिनियम केन" }, mass: 0.014, moisture: 5, contam: 5 },
+  { id: "foil", material: "aluminium", name: { en: "Aluminium Foil", hi: "अल्युमिनियम फॉइल" }, mass: 0.002, moisture: 4, contam: 15 },
+  { id: "glassbottle", material: "glass", name: { en: "Glass Bottle", hi: "काँच की बोतल" }, mass: 0.25, moisture: 6, contam: 3 },
+  { id: "glassjar", material: "glass", name: { en: "Glass Jar", hi: "काँच का जार" }, mass: 0.2, moisture: 6, contam: 4 },
+  { id: "textile", material: "residual", name: { en: "Old Textile / Cloth", hi: "पुराने कपड़े" }, mass: 0.15, moisture: 20, contam: 25 },
+  { id: "mixedres", material: "residual", name: { en: "Mixed Residual Waste", hi: "मिश्रित बचा हुआ कचरा" }, mass: 0.3, moisture: 30, contam: 45 },
+];
