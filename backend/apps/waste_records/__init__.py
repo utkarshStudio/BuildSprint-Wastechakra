@@ -1,1 +1,0 @@
-# Waste Records app package

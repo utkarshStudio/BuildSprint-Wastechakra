@@ -1,1 +1,0 @@
-# WasteChakra modular apps package
