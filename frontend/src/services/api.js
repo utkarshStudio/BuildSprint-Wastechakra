@@ -4,8 +4,18 @@ import { collectorApi } from './collectorApi';
 import { businessApi } from './businessApi';
 import { facilityApi } from './facilityApi';
 import { adminApi } from './adminApi';
+function normalizeApiUrl(url) {
+  if (!url) return 'https://buildsprint-wastechakra.onrender.com/api/v1';
+  let cleaned = url.trim().replace(/\/+$/, '');
+  if (!cleaned.includes('/api/v1')) {
+    cleaned = `${cleaned}/api/v1`;
+  }
+  return cleaned.replace(/\/+$/, '');
+}
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : 'https://wastechakra.onrender.com/api/v1');
+const API_BASE_URL = normalizeApiUrl(
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : 'https://buildsprint-wastechakra.onrender.com/api/v1')
+);
 
 const TOKEN_KEY = 'wc_access_token';
 const REFRESH_KEY = 'wc_refresh_token';
